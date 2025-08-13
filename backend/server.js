@@ -12,12 +12,12 @@ const typeDefs = `#graphql
     id: ID!
     username: String!
   }
-
+  
   type AuthPayload {
     token: String!
     user: User!
   }
-
+  
   type Query {
     hello: String
     testMessage: TestMessage
@@ -27,11 +27,16 @@ const typeDefs = `#graphql
   type Mutation {
     signup(username: String!, password: String!): AuthPayload
     login(username: String!, password: String!): AuthPayload
+    chatbot(message: String!): ChatResponse
   }
 
   type TestMessage {
     id: ID!
     message: String
+  }
+  
+  type ChatResponse {
+    response: String!
   }
 `;
 
@@ -52,6 +57,7 @@ const resolvers = {
       return rows[0];
     },
   },
+  
   Mutation: {
     signup: async (parent, { username, password }, { db }) => {
       // 1. Hash the password
@@ -72,6 +78,7 @@ const resolvers = {
         user,
       };
     },
+    
     login: async (parent, { username, password }, { db }) => {
       // 1. Find the user by username
       const { rows } = await db.query('SELECT id, username, password FROM users WHERE username = $1', [username]);
@@ -95,6 +102,23 @@ const resolvers = {
         token,
         user: { id: user.id, username: user.username }, // Return user without password
       };
+    },
+
+    chatbot: async (parent, { message }) => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/chatbot' , {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message }),
+        });
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error("Error calling Python chatbot API:", error);
+        throw new Error("Failed to get response from Python chatbot API");
+      }
     },
   },
 };
