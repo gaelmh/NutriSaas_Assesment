@@ -1,3 +1,19 @@
-node_modules/
+# Dependencies
+/backend/node_modules
+/frontend/node_modules
+
+# Environment variables
 .env
+
+# For macOs
 .DS_Store
+
+# Visual Studio Code files
+.vscode/
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
