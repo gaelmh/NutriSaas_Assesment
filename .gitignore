@@ -5,6 +5,9 @@
 # Environment variables
 .env
 
+# Python virtual environments
+/python_nlp/venv
+
 # For macOs
 .DS_Store
 
