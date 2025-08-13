@@ -7,9 +7,6 @@ import pool from './db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-// Make sure to add this to your .env file
-// JWT_SECRET=some_very_secret_string_you_should_change
-
 const typeDefs = `#graphql
   type User {
     id: ID!
