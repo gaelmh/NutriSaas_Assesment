@@ -30,4 +30,4 @@ def process_message(request: ChatRequest):
         return {"response": "I'm sorry, I don't understand that. Can you please rephrase?"}
     
 # To activate venv --> venv\Scripts\activate
-# To run --> uvicorn main:app --reload
+# To run NLP --> uvicorn main:app --reload

@@ -6,18 +6,19 @@ import http from 'http';
 import pool from './db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import cors from 'cors'; // Import the cors middleware
 
 const typeDefs = `#graphql
   type User {
     id: ID!
     username: String!
   }
-  
+
   type AuthPayload {
     token: String!
     user: User!
   }
-  
+
   type Query {
     hello: String
     testMessage: TestMessage
@@ -34,7 +35,7 @@ const typeDefs = `#graphql
     id: ID!
     message: String
   }
-  
+
   type ChatResponse {
     response: String!
   }
@@ -57,7 +58,7 @@ const resolvers = {
       return rows[0];
     },
   },
-  
+
   Mutation: {
     signup: async (parent, { username, password }, { db }) => {
       // 1. Hash the password
@@ -78,7 +79,7 @@ const resolvers = {
         user,
       };
     },
-    
+
     login: async (parent, { username, password }, { db }) => {
       // 1. Find the user by username
       const { rows } = await db.query('SELECT id, username, password FROM users WHERE username = $1', [username]);
@@ -134,6 +135,9 @@ async function startServer() {
   });
 
   await server.start();
+
+  // Enable CORS for all origins (for development)
+  app.use(cors()); // Add this line
 
   app.use('/graphql', express.json(), expressMiddleware(server, {
     context: async ({ req }) => {
