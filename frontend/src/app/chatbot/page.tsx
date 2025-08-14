@@ -51,7 +51,7 @@ const GUEST_CONVERSATION_FLOW = {
     options: ["⬅️ Volver al menú principal"],
   },
   CONTACT_ADVISOR: {
-    botMessage: "Puedes contactar a un asesor a través de [email] o [teléfono].",
+    botMessage: "Por el momento ninguno de nustros asesores está disponible. Puedes contactar a un asesor por email contact@nutrisaas.com o llamando al +1 234 567 8900.",
     options: ["⬅️ Volver al menú principal"],
   },
   WHAT_IS_NUTRISAAS: {
@@ -60,7 +60,7 @@ const GUEST_CONVERSATION_FLOW = {
   },
   // New state for "Other" option
   OTHER_INPUT: {
-    botMessage: "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento",
+    botMessage: "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.",
     options: [], // No options, expects text input
   },
 };

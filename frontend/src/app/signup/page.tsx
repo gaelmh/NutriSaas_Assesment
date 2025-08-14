@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { gql, useMutation } from '@apollo/client';
 import Link from 'next/link'; // For navigation
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 // Define the GraphQL signup mutation
 const SIGNUP_MUTATION = gql`
@@ -18,6 +19,7 @@ const SIGNUP_MUTATION = gql`
 `;
 
 export default function SignupPage() {
+  const router = useRouter(); // Initialize useRouter
   // State to manage form input values
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -38,12 +40,12 @@ export default function SignupPage() {
       // Log the response data (e.g., token and user info)
       console.log('Signup successful:', response.data?.signup);
 
-      // TODO: In a real application, you would save the token to localStorage
-      // or a secure cookie and redirect the user to a protected page.
+      // Save the token (e.g., to localStorage) and redirect
       if (response.data?.signup.token) {
-        alert('Signup successful! Account created. Check console for details.');
-        // Example: Redirect to login page or directly to dashboard
-        // window.location.href = '/login';
+        // In a real app, use a more secure method like httpOnly cookies
+        localStorage.setItem('authToken', response.data.signup.token);
+        alert('Signup successful! Redirecting to chatbot...'); // Use alert for now
+        router.push('/chatbot'); // Redirect to the chatbot page
       }
     } catch (err: any) {
       // Display a user-friendly error message

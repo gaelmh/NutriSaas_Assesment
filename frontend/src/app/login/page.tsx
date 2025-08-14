@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { gql, useMutation } from '@apollo/client';
 import Link from 'next/link'; // For navigation
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 // Define the GraphQL login mutation
 const LOGIN_MUTATION = gql`
@@ -18,13 +19,12 @@ const LOGIN_MUTATION = gql`
 `;
 
 export default function LoginPage() {
+  const router = useRouter(); // Initialize useRouter
   // State to manage form input values
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   // useMutation hook to execute the login mutation
-  // 'data' will contain the response, 'loading' indicates if the mutation is in progress,
-  // 'error' will contain any errors, and 'loginUser' is the function to call the mutation.
   const [loginUser, { data, loading, error }] = useMutation(LOGIN_MUTATION);
 
   // Handle form submission
@@ -40,12 +40,12 @@ export default function LoginPage() {
       // Log the response data (e.g., token and user info)
       console.log('Login successful:', response.data?.login);
 
-      // TODO: In a real application, you would save the token to localStorage
-      // or a secure cookie and redirect the user to a protected page.
+      // Save the token (e.g., to localStorage) and redirect
       if (response.data?.login.token) {
-        alert('Login successful! Token received. Check console for details.');
-        // Example: Redirect to dashboard or home page
-        // window.location.href = '/dashboard';
+        // In a real app, use a more secure method like httpOnly cookies
+        localStorage.setItem('authToken', response.data.login.token);
+        alert('Login successful! Redirecting to chatbot...'); // Use alert for now
+        router.push('/chatbot'); // Redirect to the chatbot page
       }
     } catch (err: any) {
       // Display a user-friendly error message
@@ -112,4 +112,3 @@ export default function LoginPage() {
     </div>
   );
 }
-    
