@@ -19,41 +19,52 @@ const LOGIN_MUTATION = gql`
 `;
 
 export default function LoginPage() {
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter();
+
   // State to manage form input values
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  // New state to manage the message displayed to the user
+  const [displayMessage, setDisplayMessage] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false); // New state to track if the message is an error
 
   // useMutation hook to execute the login mutation
-  const [loginUser, { data, loading, error }] = useMutation(LOGIN_MUTATION);
+  const [loginUser, { loading }] = useMutation(LOGIN_MUTATION, {
+    onCompleted: (result) => {
+      if (result.login.token) {
+        setDisplayMessage('Login successful! Redirecting to chatbot...');
+        setIsError(false); // Not an error message
+        // Using alert for demonstration; consider a custom modal in production
+        // alert('Login successful! Redirecting to chatbot...'); // Removed alert
+        router.push('/chatbot');
+      } else {
+        // This case might happen if GraphQL returns data but without a token
+        setDisplayMessage('Login failed: Unexpected response from server.');
+        setIsError(true);
+      }
+    },
+    onError: (err) => {
+      // This function runs if the mutation encounters an error (e.g., 429 status code)
+      console.error('Login failed in on Error callback:', err.message);
+      setDisplayMessage(`Error: ${err.message}`);
+      setIsError(true); // Mark as an error message
+    },
+  });
 
   // Handle form submission
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault(); // Prevent default form submission behavior
+    setDisplayMessage('Logging in...'); // Set loading message immediately
+    setIsError(false); // Reset error state
 
-    try {
-      // Call the login mutation with the current username and password
-      const response = await loginUser({
-        variables: { username, password },
-      });
-
-      // Log the response data (e.g., token and user info)
-      console.log('Login successful:', response.data?.login);
-
-      // Save the token (e.g., to localStorage) and redirect
-      if (response.data?.login.token) {
-        // In a real app, use a more secure method like httpOnly cookies
-        localStorage.setItem('authToken', response.data.login.token);
-        alert('Login successful! Redirecting to chatbot...'); // Use alert for now
-        router.push('/chatbot'); // Redirect to the chatbot page
-      }
-    } catch (err: any) {
-      // Display a user-friendly error message
-      alert(`Login failed: ${err.message}`);
-      console.error('Login error:', err);
-    }
+    // Call the login mutation
+    await loginUser({
+      variables: { username, password },
+    });
+    // The message will be updated by onCompleted or onError callbacks
   };
 
+  // Login Page Design
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
@@ -88,18 +99,17 @@ export default function LoginPage() {
           <button
             type="submit"
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={loading}
+            disabled={loading} // Button is disabled when loading
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        {/* Display loading, error, or success messages */}
-        {error && (
-          <p className="mt-4 text-center text-red-600">Error: {error.message}</p>
-        )}
-        {data && data.login.token && (
-          <p className="mt-4 text-center text-green-600">Logged in successfully!</p>
+        {/* Display messages based on the new displayMessage state */}
+        {displayMessage && (
+          <p className={`mt-4 text-center ${isError ? 'text-red-600' : 'text-gray-600'}`}>
+            {displayMessage}
+          </p>
         )}
 
         <p className="mt-6 text-center text-gray-600">

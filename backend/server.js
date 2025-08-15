@@ -7,6 +7,7 @@ import pool from './db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 
 const typeDefs = `#graphql
   type User {
@@ -104,7 +105,7 @@ const resolvers = {
       };
     },
 
-    login: async (parent, { username, password }, { db, res }) => {
+    login: async (parent, { username, password }, { db, res, req }) => {
       // Find the user by username
       const { rows } = await db.query('SELECT id, username, password FROM users WHERE username = $1', [username]);
       const user = rows[0];
@@ -168,15 +169,29 @@ async function startServer() {
 
   await server.start();
 
-  // Configure CORS with specific origin and credentials
+  // Configure CORS
   app.use(cors({
     origin: 'http://localhost:3000',
     credentials: true,
   }));
 
-  app.use('/graphql', express.json(), expressMiddleware(server, {
+  // Rate limiting for the login mutation
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Max 5 login attempts per IP per 15 minutes
+    message: 'Too many login attempts, please try again later after 15 minutes.',
+  });
+
+  // IMPORTANT: Apply express.json() BEFORE the rate limiter if the rate limiter needs to read req.body
+  app.use('/graphql', express.json(), (req, res, next) => {
+    // Only apply the rate limiter if the request is a `login` mutation
+    if (req.body.query && req.body.query.includes('mutation Login')) {
+      return loginLimiter(req, res, next);
+    }
+    return next();
+  }, expressMiddleware(server, {
     context: async ({ req, res }) => {
-      const token = req.cookies?.authToken; // Read token from cookies
+      const token = req.cookies?.authToken;
       let user = null;
       if (token) {
         try {

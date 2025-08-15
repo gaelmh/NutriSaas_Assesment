@@ -36,22 +36,15 @@ export default function SignupPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    try {
+    try {      
       // Call the signup mutation with the current username and password
-      const response = await signupUser({
+      await signupUser({
         variables: { username, password, email, fullname },
       });
 
-      // Log the response data
-      console.log('Signup successful:', response.data?.signup);
-
-      // Save the token and redirect
-      if (response.data?.signup.token) {
-        // In a real app, use a more secure method like httpOnly cookies
-        localStorage.setItem('authToken', response.data.signup.token);
-        alert('Signup successful! Redirecting to chatbot...');
-        router.push('/chatbot'); 
-      }
+      // Redirect immediately
+      alert('Signup successful! Redirecting to chatbot...');
+      router.push('/chatbot');
     } catch (err: any) {
       // Display a user-friendly error message
       alert(`Signup failed: ${err.message}`);
