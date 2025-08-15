@@ -60,6 +60,7 @@ const GUEST_CONVERSATION_FLOW = {
     botMessage: "NutriSaas es una plataforma que te ayuda a alcanzar tus metas de nutrición con planes personalizados.",
     options: ["⬅️ Volver al menú principal"],
   },
+  // MODIFIED: OTHER_INPUT now holds the final fallback message
   OTHER_INPUT: {
     botMessage: "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.",
     options: [],
@@ -96,24 +97,13 @@ export default function PublicChatbotPage() {
   const [showGuestTextInput, setShowGuestTextInput] = useState(false);
 
   const [sendChatMessage, { loading }] = useMutation(CHATBOT_MUTATION, {
-    onCompleted: (data) => {
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          id: prevMessages.length + 1,
-          text: data.chatbot.response,
-          sender: 'bot',
-        },
-      ]);
-      setInputMessage('');
-    },
     onError: (error) => {
       console.error('Chatbot API error:', error);
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           id: prevMessages.length + 1,
-          text: 'Oops! Something went wrong. Please try again.',
+          text: 'Oops! Something went wrong with the chatbot service. Please try again.',
           sender: 'bot',
         },
       ]);
@@ -159,25 +149,29 @@ export default function PublicChatbotPage() {
     setMessages((prevMessages) => [...prevMessages, userMessage]);
     setInputMessage('');
 
+    // Call the chatbot mutation (to potentially log the message on backend or for future NLP)
+    // The response from this mutation will NOT be displayed directly in the chat now.
     await sendChatMessage({ variables: { message: inputMessage } });
 
+    // Always provide the hardcoded fallback responses after user input
     const firstBotResponse: ChatMessage = {
-      id: messages.length + 2,
+      id: messages.length + 2, // Ensure unique ID
+      // MODIFIED: This is now the "Una disculpa..." message
       text: GUEST_CONVERSATION_FLOW.OTHER_INPUT.botMessage,
       sender: 'bot',
-      options: [],
+      options: [], // No options after this specific fallback
     };
 
     const secondBotResponse: ChatMessage = {
-      id: messages.length + 3,
+      id: messages.length + 3, // Ensure unique ID
       text: "¿Hay algo más en lo que te pueda ayudar?",
       sender: 'bot',
-      options: GUEST_CONVERSATION_FLOW.INITIAL.options,
+      options: GUEST_CONVERSATION_FLOW.INITIAL.options, // Provide initial options again
     };
 
     setMessages((prevMessages) => [...prevMessages, firstBotResponse, secondBotResponse]);
-    setGuestState('INITIAL');
-    setShowGuestTextInput(false);
+    setGuestState('INITIAL'); // Reset guest state to initial options
+    setShowGuestTextInput(false); // Hide text input, show buttons
   };
 
   // Handle button clicks for guest users
@@ -192,7 +186,16 @@ export default function PublicChatbotPage() {
 
     if (option === "Otro") {
       setShowGuestTextInput(true);
-      return;
+      // MODIFIED: Add the bot's prompt message immediately after "Otro" is clicked
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          id: prevMessages.length + 1,
+          text: "Por favor, describe lo que necesitas", // Explicit bot message
+          sender: 'bot',
+        },
+      ]);
+      return; // Exit after handling "Otro"
     }
 
     let nextBotMessage: { botMessage: string; options?: string[] } | null = null;
