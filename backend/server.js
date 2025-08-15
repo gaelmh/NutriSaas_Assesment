@@ -9,11 +9,11 @@ import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
-import 'dotenv/config'; // Ensure dotenv is configured at the very top for process.env to be available
-import cookieParser from 'cookie-parser'; // Import cookie-parser
+import 'dotenv/config';
+import cookieParser from 'cookie-parser';
 
 // --- DEBUGGING: Log JWT_SECRET at server start ---
-console.log('Server Start: process.env.JWT_SECRET (from top of file):', process.env.JWT_SECRET);
+// console.log('Server Start: process.env.JWT_SECRET (from top of file):', process.env.JWT_SECRET);
 // --- END DEBUGGING ---
 
 const typeDefs = `#graphql
@@ -29,6 +29,8 @@ const typeDefs = `#graphql
     height_cm: Int
     weight_kg: Int
     allergies: [String]
+    sex: String # Added sex field
+    age: Int # Added age field
   }
 
   type AuthPayload {
@@ -54,13 +56,17 @@ const typeDefs = `#graphql
       username: String!,
       height_cm: Int,
       weight_kg: Int,
-      allergies: [String!]
+      allergies: [String!],
+      sex: String, # Added sex to mutation input
+      age: Int # Added age to mutation input
     ): UserInfo!
     updateUserInfo(
       userId: String!,
       height_cm: Int,
       weight_kg: Int,
-      allergies: [String!]
+      allergies: [String!],
+      sex: String, # Added sex to mutation input
+      age: Int # Added age to mutation input
     ): UserInfo!
   }
 
@@ -82,9 +88,6 @@ const resolvers = {
       return rows[0];
     },
     me: async (parent, args, { db, user }) => {
-      // --- DEBUGGING: Log user object in me resolver ---
-      console.log('Me Resolver: User in context:', user);
-      // --- END DEBUGGING ---
       if (!user) {
         throw new Error('Not authenticated');
       }
@@ -92,15 +95,16 @@ const resolvers = {
       return rows[0];
     },
     userInfo: async (parent, { userId }, { user }) => {
-      // --- DEBUGGING: Log userId argument and user.id from context ---
-      console.log('userInfo Resolver: Argument userId:', userId, ' | Context user.id:', user?.id);
-      // --- END DEBUGGING ---
-      // FIX: Convert user.id to String for comparison
       if (!user || String(user.id) !== userId) {
         throw new Error('Unauthorized access to user information.');
       }
-      const info = await getUserInfo(userId);
-      return info || { initialInfoCollected: false, height_cm: null, weight_kg: null, allergies: [] };
+      try {
+        const info = await getUserInfo(userId);
+        return info || { initialInfoCollected: false, height_cm: null, weight_kg: null, allergies: [], sex: null, age: null }; // Added sex and age default
+      } catch (error) {
+        console.error('Resolver Error in userInfo:', error.message, error.stack);
+        throw new Error('Failed to retrieve user information.');
+      }
     },
   },
 
@@ -230,28 +234,30 @@ const resolvers = {
       return 'Password has been successfully reset.';
     },
 
-    saveInitialInfo: async (parent, { userId, username, height_cm, weight_kg, allergies }, { user }) => {
-      // --- DEBUGGING: Log userId argument and user.id from context ---
-      console.log('saveInitialInfo Resolver: Argument userId:', userId, ' | Context user.id:', user?.id);
-      // --- END DEBUGGING ---
-      // FIX: Convert user.id to String for comparison
+    saveInitialInfo: async (parent, { userId, username, height_cm, weight_kg, allergies, sex, age }, { user }) => { // Added sex, age
       if (!user || String(user.id) !== userId) {
         throw new Error('Unauthorized attempt to save user information.');
       }
-      const savedInfo = await saveInitialUserInfo(userId, username, height_cm, weight_kg, allergies);
-      return savedInfo;
+      try {
+        const savedInfo = await saveInitialUserInfo(userId, username, height_cm, weight_kg, allergies, sex, age); // Pass sex, age
+        return savedInfo;
+      } catch (error) {
+        console.error('Resolver Error in saveInitialInfo:', error.message, error.stack);
+        throw new Error('Failed to save user information.');
+      }
     },
 
-    updateUserInfo: async (parent, { userId, height_cm, weight_kg, allergies }, { user }) => {
-      // --- DEBUGGING: Log userId argument and user.id from context ---
-      console.log('updateUserInfo Resolver: Argument userId:', userId, ' | Context user.id:', user?.id);
-      // --- END DEBUGGING ---
-      // FIX: Convert user.id to String for comparison
+    updateUserInfo: async (parent, { userId, height_cm, weight_kg, allergies, sex, age }, { user }) => { // Added sex, age
       if (!user || String(user.id) !== userId) {
         throw new Error('Unauthorized attempt to update user information.');
       }
-      const updatedInfo = await saveInitialUserInfo(userId, user.username, height_cm, weight_kg, allergies);
-      return updatedInfo;
+      try {
+        const updatedInfo = await saveInitialUserInfo(userId, user.username, height_cm, weight_kg, allergies, sex, age); // Pass sex, age
+        return updatedInfo;
+      } catch (error) {
+        console.error('Resolver Error in updateUserInfo:', error.message, error.stack);
+        throw new Error('Failed to update user information.');
+      }
     },
   },
 };
@@ -273,7 +279,6 @@ async function startServer() {
     credentials: true,
   }));
 
-  // Use cookie-parser middleware here, before any routes that need to read cookies
   app.use(cookieParser());
 
   const loginLimiter = rateLimit({
@@ -289,25 +294,14 @@ async function startServer() {
     return next();
   }, expressMiddleware(server, {
     context: async ({ req, res }) => {
-      // --- DEBUGGING: Log incoming request info in context ---
-      console.log('Context: Incoming cookies:', req.cookies);
       const token = req.cookies?.authToken;
-      console.log('Context: Extracted token:', token);
-      console.log('Context: process.env.JWT_SECRET (in context):', process.env.JWT_SECRET);
-      // --- END DEBUGGING ---
-
       let user = null;
       if (token) {
         try {
           const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
           user = { id: decodedToken.userId };
-          // --- DEBUGGING: Log decoded user if successful ---
-          console.log('Context: Successfully decoded token, user:', user);
-          // --- END DEBUGGING ---
         } catch (err) {
-          // --- DEBUGGING: Log full error object if verification fails ---
-          console.error('Context: JWT verification failed:', err);
-          // --- END DEBUGGING ---
+          console.error('Context: JWT verification failed:', err.message);
         }
       }
       return {
