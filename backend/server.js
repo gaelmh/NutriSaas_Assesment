@@ -6,7 +6,7 @@ import http from 'http';
 import pool from './db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import cors from 'cors'; // Import the cors middleware
+import cors from 'cors';
 
 const typeDefs = `#graphql
   type User {
@@ -62,7 +62,7 @@ const resolvers = {
   },
 
   Mutation: {
-    signup: async (parent, { username, password, email, fullname }, { db }) => {
+    signup: async (parent, { username, password, email, fullname }, { db, res }) => {
       // Basic validation for new fields
       if (!email || !fullname){
         throw new Error('Email and full name required.')
@@ -91,14 +91,21 @@ const resolvers = {
       // Generate a JWT
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
+      // Set JWT as httpOnly cookie
+      res.cookie('authToken', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 1000 * 60 * 60,
+      });
+
       return {
         token,
         user,
       };
     },
 
-    login: async (parent, { username, password }, { db }) => {
-      // 1. Find the user by username
+    login: async (parent, { username, password }, { db, res }) => {
+      // Find the user by username
       const { rows } = await db.query('SELECT id, username, password FROM users WHERE username = $1', [username]);
       const user = rows[0];
 
@@ -106,19 +113,26 @@ const resolvers = {
         throw new Error('User not found');
       }
 
-      // 2. Compare the provided password with the hashed password in the database
+      // Compare the provided password with the hashed password in the database
       const isValidPassword = await bcrypt.compare(password, user.password);
 
       if (!isValidPassword) {
         throw new Error('Invalid password');
       }
 
-      // 3. Generate a JWT
+      // Generate a JWT
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      // Set the JWT as an httpOnly cookie
+      res.cookie('authToken', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 1000 * 60 * 60,
+      });
 
       return {
         token,
-        user: { id: user.id, username: user.username }, // Return user without password
+        user: { id: user.id, username: user.username },
       };
     },
 
@@ -141,6 +155,7 @@ const resolvers = {
   },
 };
 
+// Start Server
 async function startServer() {
   const app = express();
   const httpServer = http.createServer(app);
@@ -153,26 +168,29 @@ async function startServer() {
 
   await server.start();
 
-  // Enable CORS for all origins (for development)
-  app.use(cors()); // Add this line
+  // Configure CORS with specific origin and credentials
+  app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  }));
 
   app.use('/graphql', express.json(), expressMiddleware(server, {
-    context: async ({ req }) => {
-      const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : '';
+    context: async ({ req, res }) => {
+      const token = req.cookies?.authToken; // Read token from cookies
       let user = null;
       if (token) {
         try {
           const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-          user = { id: decodedToken.userId }; // Store just the user ID for context
+          user = { id: decodedToken.userId };
         } catch (err) {
-          // Token is invalid or expired
           console.error('Invalid or expired token:', err.message);
         }
       }
       return {
         db: pool,
-        user, // The authenticated user's data
+        user,
         req,
+        res,
       };
     },
   }));
