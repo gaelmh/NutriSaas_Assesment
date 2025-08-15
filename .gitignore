@@ -20,7 +20,6 @@
 # Python
 /python_nlp/__pycache__
 /python_nlp/venv
-python_nlp/__pycache__/main.cpython-312.pyc
 
 # Next.js
 /.next/
