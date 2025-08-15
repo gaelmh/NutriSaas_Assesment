@@ -11,6 +11,8 @@ CREATE TABLE users (
   email VARCHAR(255) UNIQUE NOT NULL,
   fullname VARCHAR(255) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
+  password_reset_token VARCHAR(255),
+  password_reset_expires TIMESTAMP WITH TIME ZONE;
 );
 
 /* Creates the chat_bot table

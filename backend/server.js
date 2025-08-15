@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import crypto from 'crypto'; // Import crypto for generating tokens
 
 const typeDefs = `#graphql
   type User {
@@ -32,6 +33,9 @@ const typeDefs = `#graphql
     signup(username: String!, password: String!, email: String!, fullname: String!): AuthPayload
     login(username: String!, password: String!): AuthPayload
     chatbot(message: String!): ChatResponse
+    # New mutations for password recovery
+    requestPasswordReset(email: String!): String!
+    resetPassword(token: String!, newPassword: String!): String!
   }
 
   type TestMessage {
@@ -152,6 +156,67 @@ const resolvers = {
         console.error("Error calling Python chatbot API:", error);
         throw new Error("Failed to get response from Python chatbot API");
       }
+    },
+
+    // New mutation to request a password reset
+    requestPasswordReset: async (parent, { email }, { db }) => {
+      const { rows } = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+      const user = rows[0];
+
+      if (!user) {
+        // For security, do not reveal if the email does not exist.
+        // Always return a generic success message to prevent user enumeration.
+        return 'If an account with that email exists, a password reset link has been sent.';
+      }
+
+      // Generate a secure, unique token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      // Set token expiration (e.g., 1 hour from now)
+      const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+      // Store the token and expiry in the database
+      await db.query(
+        'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
+        [resetToken, resetExpires, user.id]
+      );
+
+      // In a real application, you would send an email here.
+      // For this assessment, we'll just log the link to the console.
+      const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
+      console.log(`Password Reset Link for ${email}: ${resetLink}`);
+
+      return 'If an account with that email exists, a password reset link has been sent.';
+    },
+
+    // New mutation to reset the password using a token
+    resetPassword: async (parent, { token, newPassword }, { db }) => {
+      // Find the user by the reset token and check expiration
+      const { rows } = await db.query(
+        'SELECT id FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW()',
+        [token]
+      );
+      const user = rows[0];
+
+      if (!user) {
+        throw new Error('Invalid or expired password reset token.');
+      }
+
+      // Validate new password (same as signup for consistency)
+      const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
+      if (!passwordRegex.test(newPassword)) {
+        throw new Error('New password must be at least 8 characters long and must include at least one number, one letter, and one special character.');
+      }
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update the user's password and clear the reset token
+      await db.query(
+        'UPDATE users SET password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2',
+        [hashedPassword, user.id]
+      );
+
+      return 'Password has been successfully reset.';
     },
   },
 };

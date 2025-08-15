@@ -113,9 +113,16 @@ export default function LoginPage() {
         )}
 
         <p className="mt-6 text-center text-gray-600">
-          Don't have an account?{' '}
+          ¿No tiene una cuenta?{' '}
           <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-            Sign up
+            ¡Registrese!
+          </Link>
+        </p>
+        
+        {/* Add the Forgot Password link here */}
+        <p className="mt-2 text-center text-gray-600"> {/* Use mt-2 for slightly less margin */}
+          <Link href="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
+            ¿Olvidó su contraseña?
           </Link>
         </p>
       </div>
