@@ -60,7 +60,6 @@ const GUEST_CONVERSATION_FLOW = {
     botMessage: "NutriSaas es una plataforma que te ayuda a alcanzar tus metas de nutrición con planes personalizados.",
     options: ["⬅️ Volver al menú principal"],
   },
-  // MODIFIED: OTHER_INPUT now holds the final fallback message
   OTHER_INPUT: {
     botMessage: "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.",
     options: [],
@@ -149,29 +148,25 @@ export default function PublicChatbotPage() {
     setMessages((prevMessages) => [...prevMessages, userMessage]);
     setInputMessage('');
 
-    // Call the chatbot mutation (to potentially log the message on backend or for future NLP)
-    // The response from this mutation will NOT be displayed directly in the chat now.
     await sendChatMessage({ variables: { message: inputMessage } });
 
-    // Always provide the hardcoded fallback responses after user input
     const firstBotResponse: ChatMessage = {
-      id: messages.length + 2, // Ensure unique ID
-      // MODIFIED: This is now the "Una disculpa..." message
+      id: messages.length + 2,
       text: GUEST_CONVERSATION_FLOW.OTHER_INPUT.botMessage,
       sender: 'bot',
-      options: [], // No options after this specific fallback
+      options: [],
     };
 
     const secondBotResponse: ChatMessage = {
-      id: messages.length + 3, // Ensure unique ID
+      id: messages.length + 3,
       text: "¿Hay algo más en lo que te pueda ayudar?",
       sender: 'bot',
-      options: GUEST_CONVERSATION_FLOW.INITIAL.options, // Provide initial options again
+      options: GUEST_CONVERSATION_FLOW.INITIAL.options,
     };
 
     setMessages((prevMessages) => [...prevMessages, firstBotResponse, secondBotResponse]);
-    setGuestState('INITIAL'); // Reset guest state to initial options
-    setShowGuestTextInput(false); // Hide text input, show buttons
+    setGuestState('INITIAL');
+    setShowGuestTextInput(false);
   };
 
   // Handle button clicks for guest users
@@ -186,16 +181,15 @@ export default function PublicChatbotPage() {
 
     if (option === "Otro") {
       setShowGuestTextInput(true);
-      // MODIFIED: Add the bot's prompt message immediately after "Otro" is clicked
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           id: prevMessages.length + 1,
-          text: "Por favor, describe lo que necesitas", // Explicit bot message
+          text: "Por favor, describe lo que necesitas",
           sender: 'bot',
         },
       ]);
-      return; // Exit after handling "Otro"
+      return;
     }
 
     let nextBotMessage: { botMessage: string; options?: string[] } | null = null;
@@ -274,9 +268,11 @@ export default function PublicChatbotPage() {
   };
 
   return (
-    <>
+    // Added a wrapper div to explicitly set background and text color to match private chatbot
+    <div className="flex flex-col h-full w-full bg-white text-gray-800">
       {/* Chat Messages Display Area */}
-      <div className="flex-1 overflow-y-auto p-4 border border-gray-200 rounded-md mb-4 space-y-3">
+      {/* Explicitly set bg-white for the chat messages display area */}
+      <div className="flex-1 overflow-y-auto p-4 bg-white border border-gray-200 rounded-md mb-4 space-y-3">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} msg={msg} />
         ))}
@@ -318,6 +314,6 @@ export default function PublicChatbotPage() {
           </div>
         )
       )}
-    </>
+    </div>
   );
 }
