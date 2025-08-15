@@ -3,12 +3,18 @@ import { expressMiddleware } from '@apollo/server/express4';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import express from 'express';
 import http from 'http';
-import pool from './db.js';
+import pool, { getUserInfo, saveInitialUserInfo } from './db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import crypto from 'crypto'; // Import crypto for generating tokens
+import crypto from 'crypto';
+import 'dotenv/config'; // Ensure dotenv is configured at the very top for process.env to be available
+import cookieParser from 'cookie-parser'; // Import cookie-parser
+
+// --- DEBUGGING: Log JWT_SECRET at server start ---
+console.log('Server Start: process.env.JWT_SECRET (from top of file):', process.env.JWT_SECRET);
+// --- END DEBUGGING ---
 
 const typeDefs = `#graphql
   type User {
@@ -16,6 +22,13 @@ const typeDefs = `#graphql
     username: String!
     email: String!
     fullname: String!
+  }
+
+  type UserInfo {
+    initialInfoCollected: Boolean!
+    height_cm: Int
+    weight_kg: Int
+    allergies: [String]
   }
 
   type AuthPayload {
@@ -27,15 +40,28 @@ const typeDefs = `#graphql
     hello: String
     testMessage: TestMessage
     me: User
+    userInfo(userId: String!): UserInfo
   }
 
   type Mutation {
     signup(username: String!, password: String!, email: String!, fullname: String!): AuthPayload
     login(username: String!, password: String!): AuthPayload
     chatbot(message: String!): ChatResponse
-    # New mutations for password recovery
     requestPasswordReset(email: String!): String!
     resetPassword(token: String!, newPassword: String!): String!
+    saveInitialInfo(
+      userId: String!,
+      username: String!,
+      height_cm: Int,
+      weight_kg: Int,
+      allergies: [String!]
+    ): UserInfo!
+    updateUserInfo(
+      userId: String!,
+      height_cm: Int,
+      weight_kg: Int,
+      allergies: [String!]
+    ): UserInfo!
   }
 
   type TestMessage {
@@ -56,51 +82,53 @@ const resolvers = {
       return rows[0];
     },
     me: async (parent, args, { db, user }) => {
-      // Check if user is authenticated (user object will be populated from context)
+      // --- DEBUGGING: Log user object in me resolver ---
+      console.log('Me Resolver: User in context:', user);
+      // --- END DEBUGGING ---
       if (!user) {
         throw new Error('Not authenticated');
       }
-      // Fetch user from DB if needed, or simply return the user object from context
       const { rows } = await db.query('SELECT id, username, email, "fullname" FROM users WHERE id = $1', [user.id]);
       return rows[0];
+    },
+    userInfo: async (parent, { userId }, { user }) => {
+      // --- DEBUGGING: Log userId argument and user.id from context ---
+      console.log('userInfo Resolver: Argument userId:', userId, ' | Context user.id:', user?.id);
+      // --- END DEBUGGING ---
+      // FIX: Convert user.id to String for comparison
+      if (!user || String(user.id) !== userId) {
+        throw new Error('Unauthorized access to user information.');
+      }
+      const info = await getUserInfo(userId);
+      return info || { initialInfoCollected: false, height_cm: null, weight_kg: null, allergies: [] };
     },
   },
 
   Mutation: {
     signup: async (parent, { username, password, email, fullname }, { db, res }) => {
-      // Basic validation for new fields
       if (!email || !fullname){
         throw new Error('Email and full name required.')
       }
 
-      // Password validation:
-        // Minimum 8 characters containing at least
-          // One number
-          // One letter
-          // One special character
       const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
       if (!passwordRegex.test(password)) {
         throw new Error('Password must be at least 8 characters long and must include at least one number, one letter, and one special character')
       }
       
-      // Hash the password
-      const hashedPassword = await bcrypt.hash(password, 10); // 10 is the salt rounds
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Save the user to the database
       const { rows } = await db.query(
         'INSERT INTO users (username, password, email, fullname) VALUES ($1, $2, $3, $4) RETURNING id, username, email, fullname',
         [username, hashedPassword, email, fullname]
       );
       const user = rows[0];
 
-      // Generate a JWT
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-      // Set JWT as httpOnly cookie
       res.cookie('authToken', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 1000 * 60 * 60,
+        maxAge: 1000 * 60 * 60 * 24 * 7,
       });
 
       return {
@@ -110,7 +138,6 @@ const resolvers = {
     },
 
     login: async (parent, { username, password }, { db, res, req }) => {
-      // Find the user by username
       const { rows } = await db.query('SELECT id, username, password FROM users WHERE username = $1', [username]);
       const user = rows[0];
 
@@ -118,21 +145,18 @@ const resolvers = {
         throw new Error('User not found');
       }
 
-      // Compare the provided password with the hashed password in the database
       const isValidPassword = await bcrypt.compare(password, user.password);
 
       if (!isValidPassword) {
         throw new Error('Invalid password');
       }
 
-      // Generate a JWT
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-      // Set the JWT as an httpOnly cookie
       res.cookie('authToken', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 1000 * 60 * 60,
+        maxAge: 1000 * 60 * 60 * 24 * 7,
       });
 
       return {
@@ -158,39 +182,29 @@ const resolvers = {
       }
     },
 
-    // New mutation to request a password reset
     requestPasswordReset: async (parent, { email }, { db }) => {
       const { rows } = await db.query('SELECT id FROM users WHERE email = $1', [email]);
       const user = rows[0];
 
       if (!user) {
-        // For security, do not reveal if the email does not exist.
-        // Always return a generic success message to prevent user enumeration.
         return 'If an account with that email exists, a password reset link has been sent.';
       }
 
-      // Generate a secure, unique token
       const resetToken = crypto.randomBytes(32).toString('hex');
-      // Set token expiration (e.g., 1 hour from now)
-      const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+      const resetExpires = new Date(Date.now() + 3600000);
 
-      // Store the token and expiry in the database
       await db.query(
         'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
         [resetToken, resetExpires, user.id]
       );
 
-      // In a real application, you would send an email here.
-      // For this assessment, we'll just log the link to the console.
       const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
       console.log(`Password Reset Link for ${email}: ${resetLink}`);
 
       return 'If an account with that email exists, a password reset link has been sent.';
     },
 
-    // New mutation to reset the password using a token
     resetPassword: async (parent, { token, newPassword }, { db }) => {
-      // Find the user by the reset token and check expiration
       const { rows } = await db.query(
         'SELECT id FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW()',
         [token]
@@ -201,16 +215,13 @@ const resolvers = {
         throw new Error('Invalid or expired password reset token.');
       }
 
-      // Validate new password (same as signup for consistency)
       const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
       if (!passwordRegex.test(newPassword)) {
         throw new Error('New password must be at least 8 characters long and must include at least one number, one letter, and one special character.');
       }
 
-      // Hash the new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-      // Update the user's password and clear the reset token
       await db.query(
         'UPDATE users SET password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2',
         [hashedPassword, user.id]
@@ -218,10 +229,33 @@ const resolvers = {
 
       return 'Password has been successfully reset.';
     },
+
+    saveInitialInfo: async (parent, { userId, username, height_cm, weight_kg, allergies }, { user }) => {
+      // --- DEBUGGING: Log userId argument and user.id from context ---
+      console.log('saveInitialInfo Resolver: Argument userId:', userId, ' | Context user.id:', user?.id);
+      // --- END DEBUGGING ---
+      // FIX: Convert user.id to String for comparison
+      if (!user || String(user.id) !== userId) {
+        throw new Error('Unauthorized attempt to save user information.');
+      }
+      const savedInfo = await saveInitialUserInfo(userId, username, height_cm, weight_kg, allergies);
+      return savedInfo;
+    },
+
+    updateUserInfo: async (parent, { userId, height_cm, weight_kg, allergies }, { user }) => {
+      // --- DEBUGGING: Log userId argument and user.id from context ---
+      console.log('updateUserInfo Resolver: Argument userId:', userId, ' | Context user.id:', user?.id);
+      // --- END DEBUGGING ---
+      // FIX: Convert user.id to String for comparison
+      if (!user || String(user.id) !== userId) {
+        throw new Error('Unauthorized attempt to update user information.');
+      }
+      const updatedInfo = await saveInitialUserInfo(userId, user.username, height_cm, weight_kg, allergies);
+      return updatedInfo;
+    },
   },
 };
 
-// Start Server
 async function startServer() {
   const app = express();
   const httpServer = http.createServer(app);
@@ -234,36 +268,46 @@ async function startServer() {
 
   await server.start();
 
-  // Configure CORS
   app.use(cors({
     origin: 'http://localhost:3000',
     credentials: true,
   }));
 
-  // Rate limiting for the login mutation
+  // Use cookie-parser middleware here, before any routes that need to read cookies
+  app.use(cookieParser());
+
   const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Max 5 login attempts per IP per 15 minutes
+    windowMs: 15 * 60 * 1000,
+    max: 5,
     message: 'Too many login attempts, please try again later after 15 minutes.',
   });
 
-  // IMPORTANT: Apply express.json() BEFORE the rate limiter if the rate limiter needs to read req.body
   app.use('/graphql', express.json(), (req, res, next) => {
-    // Only apply the rate limiter if the request is a `login` mutation
     if (req.body.query && req.body.query.includes('mutation Login')) {
       return loginLimiter(req, res, next);
     }
     return next();
   }, expressMiddleware(server, {
     context: async ({ req, res }) => {
+      // --- DEBUGGING: Log incoming request info in context ---
+      console.log('Context: Incoming cookies:', req.cookies);
       const token = req.cookies?.authToken;
+      console.log('Context: Extracted token:', token);
+      console.log('Context: process.env.JWT_SECRET (in context):', process.env.JWT_SECRET);
+      // --- END DEBUGGING ---
+
       let user = null;
       if (token) {
         try {
           const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
           user = { id: decodedToken.userId };
+          // --- DEBUGGING: Log decoded user if successful ---
+          console.log('Context: Successfully decoded token, user:', user);
+          // --- END DEBUGGING ---
         } catch (err) {
-          console.error('Invalid or expired token:', err.message);
+          // --- DEBUGGING: Log full error object if verification fails ---
+          console.error('Context: JWT verification failed:', err);
+          // --- END DEBUGGING ---
         }
       }
       return {
