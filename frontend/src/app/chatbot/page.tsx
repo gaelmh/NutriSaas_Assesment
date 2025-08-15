@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { gql, useMutation } from '@apollo/client';
-import { useRouter } from 'next/navigation'; // For redirection
-import Link from 'next/link'; // Import Link for the persistent button
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 // Define the GraphQL chatbot mutation
 const CHATBOT_MUTATION = gql`
@@ -18,17 +18,20 @@ interface ChatMessage {
   id: number;
   text: string;
   sender: 'user' | 'bot';
-  options?: string[]; // For bot-provided buttons
-  // New property to indicate if this message was a user button click
+  options?: string[];
   isUserOption?: boolean;
-  selectedOption?: string; // To store the option the user selected
+  selectedOption?: string;
 }
 
 // Define conversation states for guest users
 const GUEST_CONVERSATION_FLOW = {
   INITIAL: {
     botMessage: "¡Hola! Bienvenido a NutriSaaS 🥗 ¿En qué puedo ayudarte hoy?",
-    options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaaS?", "Otro"], // Added "Otro"
+    options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "Otro"],
+  },
+  RETURN_TO_INITIAL: { // New state for returning to initial options
+    botMessage: "¿Hay algo más en lo que te pueda ayudar?",
+    options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "Otro"],
   },
   PLAN_SELECTION: {
     botMessage: "Tenemos 3 planes diseñados para ti:",
@@ -55,32 +58,25 @@ const GUEST_CONVERSATION_FLOW = {
     options: ["⬅️ Volver al menú principal"],
   },
   WHAT_IS_NUTRISAAS: {
-    botMessage: "NutriSaaS es una plataforma que te ayuda a alcanzar tus metas de nutrición con planes personalizados.",
+    botMessage: "NutriSaas es una plataforma que te ayuda a alcanzar tus metas de nutrición con planes personalizados.",
     options: ["⬅️ Volver al menú principal"],
   },
-  // New state for "Other" option
   OTHER_INPUT: {
     botMessage: "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.",
-    options: [], // No options, expects text input
+    options: [],
   },
 };
 
 export default function ChatbotPage() {
   const router = useRouter();
-  // State to hold the current input message
   const [inputMessage, setInputMessage] = useState('');
-  // State to hold all chat messages
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  // State to manage guest conversation flow
   const [guestState, setGuestState] = useState('INITIAL');
-  // State to determine if user is authenticated (for future use)
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // TODO: Implement actual auth check
-  // New state to control visibility of text input for guest
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showGuestTextInput, setShowGuestTextInput] = useState(false);
 
   const [sendChatMessage, { loading }] = useMutation(CHATBOT_MUTATION, {
     onCompleted: (data) => {
-      // When the mutation is completed successfully, add the bot's response to messages
       setMessages((prevMessages) => [
         ...prevMessages,
         {
@@ -89,11 +85,9 @@ export default function ChatbotPage() {
           sender: 'bot',
         },
       ]);
-      // After bot response for authenticated user, clear input if needed
       setInputMessage('');
     },
     onError: (error) => {
-      // Handle errors from the chatbot API
       console.error('Chatbot API error:', error);
       setMessages((prevMessages) => [
         ...prevMessages,
@@ -109,29 +103,28 @@ export default function ChatbotPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Effect for auto-scrolling
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Initial bot message for guest users or when returning to initial state
+  // Effect to add the VERY FIRST initial bot message on component mount.
+  // This ensures it only runs once and the welcome message is not duplicated.
   useEffect(() => {
-    // Only add initial message if not authenticated, no messages yet, AND not currently showing text input
-    // OR if returning to INITIAL state and the last message was a user message (indicating a reset)
-    if (!isAuthenticated && (messages.length === 0 || (guestState === 'INITIAL' && messages[messages.length - 1]?.sender === 'user' && !showGuestTextInput))) {
-        const initialBotMessage = GUEST_CONVERSATION_FLOW.INITIAL;
-        setMessages((prevMessages) => [
-            ...prevMessages,
-            {
-                id: prevMessages.length + 1,
-                text: initialBotMessage.botMessage,
-                sender: 'bot',
-                options: initialBotMessage.options,
-            },
-        ]);
-        setShowGuestTextInput(false); // Ensure text input is hidden when initial options are shown
+    if (!isAuthenticated && messages.length === 0) {
+      const initialBotMessage = GUEST_CONVERSATION_FLOW.INITIAL;
+      setMessages([
+        {
+          id: 1, // Start with ID 1 for the very first message
+          text: initialBotMessage.botMessage,
+          sender: 'bot',
+          options: initialBotMessage.options,
+        },
+      ]);
+      setGuestState('INITIAL'); // Ensure initial state is set
+      setShowGuestTextInput(false); // Ensure text input is hidden initially
     }
-  }, [isAuthenticated, messages.length, guestState, showGuestTextInput]); // Added showGuestTextInput to dependencies
-
+  }, [isAuthenticated]); // This effect will only re-run if authentication status changes.
 
   // Handle sending a message (for authenticated users or guest text input)
   const handleSendMessage = async (event: React.FormEvent) => {
@@ -145,71 +138,53 @@ export default function ChatbotPage() {
     };
 
     setMessages((prevMessages) => [...prevMessages, userMessage]);
-    setInputMessage(''); // Clear input immediately
+    setInputMessage('');
 
     if (isAuthenticated) {
-      // Authenticated user: send to NLP backend
       await sendChatMessage({ variables: { message: inputMessage } });
     } else {
       // Guest user with "Other" input
-      // First bot response: "Una disculpa..."
       const firstBotResponse: ChatMessage = {
         id: messages.length + 2,
         text: GUEST_CONVERSATION_FLOW.OTHER_INPUT.botMessage,
         sender: 'bot',
-        options: [], // No options for this message
+        options: [],
       };
 
-      // Second bot response: "Hay algo más..." with initial options
+      // After "Una disculpa...", provide options with a new prompt
       const secondBotResponse: ChatMessage = {
-        id: messages.length + 3, // Ensure unique ID
+        id: messages.length + 3,
         text: "¿Hay algo más en lo que te pueda ayudar?",
         sender: 'bot',
-        options: GUEST_CONVERSATION_FLOW.INITIAL.options, // Prompt initial options again
+        options: GUEST_CONVERSATION_FLOW.INITIAL.options, // Re-use the initial options
       };
 
       setMessages((prevMessages) => [...prevMessages, firstBotResponse, secondBotResponse]);
       setGuestState('INITIAL'); // Reset guest state
-      setShowGuestTextInput(false); // Hide text input
+      setShowGuestTextInput(false);
     }
   };
 
   // Handle button clicks for guest users
   const handleGuestOptionClick = (option: string) => {
-    // Update the last user message to show the selected option
-    setMessages((prevMessages) =>
-      prevMessages.map((msg, index) =>
-        index === prevMessages.length - 1 && msg.sender === 'user'
-          ? { ...msg, selectedOption: option } // Store the selected option
-          : msg
-      )
-    );
-
-    // If "Otro" is clicked, show text input
-    if (option === "Otro") {
-      const userMessage: ChatMessage = {
-        id: messages.length + 1,
-        text: option,
-        sender: 'user',
-        isUserOption: true, // Mark as user option button click
-      };
-      setMessages((prevMessages) => [...prevMessages, userMessage]);
-      setShowGuestTextInput(true);
-      return; // Do not proceed with conversation flow, wait for text input
-    }
-
+    // Add user's selected option to chat history
     const userMessage: ChatMessage = {
       id: messages.length + 1,
       text: option,
       sender: 'user',
-      isUserOption: true, // Mark as user option button click
+      isUserOption: true,
     };
     setMessages((prevMessages) => [...prevMessages, userMessage]);
+
+    // If "Otro" is clicked, show text input
+    if (option === "Otro") {
+      setShowGuestTextInput(true);
+      return;
+    }
 
     let nextBotMessage: { botMessage: string; options?: string[] } | null = null;
     let newGuestState = guestState;
 
-    // Logic to determine the next bot response based on the clicked option
     switch (guestState) {
       case 'INITIAL':
         if (option === "📋 Conocer nuestros planes") {
@@ -221,7 +196,7 @@ export default function ChatbotPage() {
         } else if (option === "📞 Contactar a un asesor") {
           nextBotMessage = GUEST_CONVERSATION_FLOW.CONTACT_ADVISOR;
           newGuestState = 'CONTACT_ADVISOR';
-        } else if (option === "🍎 ¿Qué es NutriSaaS?") {
+        } else if (option === "🍎 ¿Qué es NutriSaas?") {
           nextBotMessage = GUEST_CONVERSATION_FLOW.WHAT_IS_NUTRISAAS;
           newGuestState = 'WHAT_IS_NUTRISAAS';
         }
@@ -237,18 +212,18 @@ export default function ChatbotPage() {
           nextBotMessage = GUEST_CONVERSATION_FLOW.PRO_PLAN_DETAILS;
           newGuestState = 'PRO_PLAN_DETAILS';
         } else if (option === "⬅️ Volver al menú principal") {
-          nextBotMessage = GUEST_CONVERSATION_FLOW.INITIAL;
-          newGuestState = 'INITIAL';
+          nextBotMessage = GUEST_CONVERSATION_FLOW.RETURN_TO_INITIAL; // Use the new return message
+          newGuestState = 'INITIAL'; // Reset state to initial
         }
         break;
       case 'BASIC_PLAN_DETAILS':
       case 'PREMIUM_PLAN_DETAILS':
       case 'PRO_PLAN_DETAILS':
         if (option === "📝 Registrarme ahora") {
-          router.push('/signup'); // Redirect to signup page
+          router.push('/signup');
           return;
         } else if (option === "💬 Hablar con un asesor") {
-          nextBotMessage = GUEST_CONVERSATION_FLOW.CONTACT_ADVISOR; // Reuse contact advisor logic
+          nextBotMessage = GUEST_CONVERSATION_FLOW.CONTACT_ADVISOR;
           newGuestState = 'CONTACT_ADVISOR';
         } else if (option === "⬅️ Ver otros planes") {
           nextBotMessage = GUEST_CONVERSATION_FLOW.PLAN_SELECTION;
@@ -259,12 +234,12 @@ export default function ChatbotPage() {
       case 'CONTACT_ADVISOR':
       case 'WHAT_IS_NUTRISAAS':
         if (option === "⬅️ Volver al menú principal") {
-          nextBotMessage = GUEST_CONVERSATION_FLOW.INITIAL;
-          newGuestState = 'INITIAL';
+          nextBotMessage = GUEST_CONVERSATION_FLOW.RETURN_TO_INITIAL; // Use the new return message
+          newGuestState = 'INITIAL'; // Reset state to initial
         }
         break;
       default:
-        nextBotMessage = GUEST_CONVERSATION_FLOW.INITIAL;
+        nextBotMessage = GUEST_CONVERSATION_FLOW.RETURN_TO_INITIAL; // Fallback to new return message
         newGuestState = 'INITIAL';
     }
 
@@ -292,9 +267,8 @@ export default function ChatbotPage() {
           </Link>
         </div>
 
-        {/* Chatbot Title - Adjusted margin-top */}
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-4 mt-12">NutriSaas Chatbot</h2> {/* Adjusted mt-12 */}
-
+        {/* Chatbot Title */}
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-4 mt-12">NutriSaas Chatbot</h2>
 
         {/* Chat Messages Display Area */}
         <div className="flex-1 overflow-y-auto p-4 border border-gray-200 rounded-md mb-4 space-y-3">
@@ -314,22 +288,13 @@ export default function ChatbotPage() {
               >
                 {msg.text}
               </div>
-              {/* Render user's selected option as a button */}
-              {msg.sender === 'user' && msg.selectedOption && (
-                <div className="ml-2">
-                  <button className="py-2 px-4 bg-blue-500 text-white rounded-lg shadow-md text-sm">
-                    {msg.selectedOption}
-                  </button>
-                </div>
-              )}
             </div>
           ))}
-          <div ref={messagesEndRef} /> {/* For auto-scrolling */}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Conditional Input/Buttons based on authentication status */}
         {isAuthenticated ? (
-          // Authenticated user input (for future NLP integration)
           <form onSubmit={handleSendMessage} className="flex space-x-3">
             <input
               type="text"
@@ -337,7 +302,7 @@ export default function ChatbotPage() {
               placeholder="Type your message..."
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              disabled={loading} // Disable input while waiting for bot response
+              disabled={loading}
             />
             <button
               type="submit"
@@ -348,7 +313,6 @@ export default function ChatbotPage() {
             </button>
           </form>
         ) : (
-          // Guest user buttons or text input
           <>
             {showGuestTextInput ? (
               <form onSubmit={handleSendMessage} className="flex space-x-3">
@@ -369,7 +333,6 @@ export default function ChatbotPage() {
                 </button>
               </form>
             ) : (
-              // Only show options if the last message is from the bot and has options
               messages[messages.length - 1]?.sender === 'bot' && messages[messages.length - 1]?.options && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {messages[messages.length - 1]?.options?.map((option, index) => (
