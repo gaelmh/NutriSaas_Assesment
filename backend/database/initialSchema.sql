@@ -1,9 +1,15 @@
+/* Drops tables to avoid issues */
+DROP table users;
+DROP table chatbot_data;
+
 /* Creates the users table
 Will contain information about users login */
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   username VARCHAR(255) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  fullname VARCHAR(255) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

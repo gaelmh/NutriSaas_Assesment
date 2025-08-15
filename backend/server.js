@@ -12,6 +12,8 @@ const typeDefs = `#graphql
   type User {
     id: ID!
     username: String!
+    email: String!
+    fullname: String!
   }
 
   type AuthPayload {
@@ -26,7 +28,7 @@ const typeDefs = `#graphql
   }
 
   type Mutation {
-    signup(username: String!, password: String!): AuthPayload
+    signup(username: String!, password: String!, email: String!, fullname: String!): AuthPayload
     login(username: String!, password: String!): AuthPayload
     chatbot(message: String!): ChatResponse
   }
@@ -54,24 +56,39 @@ const resolvers = {
         throw new Error('Not authenticated');
       }
       // Fetch user from DB if needed, or simply return the user object from context
-      const { rows } = await db.query('SELECT id, username FROM users WHERE id = $1', [user.id]);
+      const { rows } = await db.query('SELECT id, username, email, "fullname" FROM users WHERE id = $1', [user.id]);
       return rows[0];
     },
   },
 
   Mutation: {
-    signup: async (parent, { username, password }, { db }) => {
-      // 1. Hash the password
+    signup: async (parent, { username, password, email, fullname }, { db }) => {
+      // Basic validation for new fields
+      if (!email || !fullname){
+        throw new Error('Email and full name required.')
+      }
+
+      // Password validation:
+        // Minimum 8 characters containing at least
+          // One number
+          // One letter
+          // One special character
+      const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
+      if (!passwordRegex.test(password)) {
+        throw new Error('Password must be at least 8 characters long and must include at least one number, one letter, and one special character')
+      }
+      
+      // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10); // 10 is the salt rounds
 
-      // 2. Save the user to the database
+      // Save the user to the database
       const { rows } = await db.query(
-        'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username',
-        [username, hashedPassword]
+        'INSERT INTO users (username, password, email, fullname) VALUES ($1, $2, $3, $4) RETURNING id, username, email, fullname',
+        [username, hashedPassword, email, fullname]
       );
       const user = rows[0];
 
-      // 3. Generate a JWT
+      // Generate a JWT
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
       return {

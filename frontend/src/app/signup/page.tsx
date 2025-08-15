@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import { gql, useMutation } from '@apollo/client';
-import Link from 'next/link'; // For navigation
-import { useRouter } from 'next/navigation'; // Import useRouter
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 // Define the GraphQL signup mutation
 const SIGNUP_MUTATION = gql`
-  mutation Signup($username: String!, $password: String!) {
-    signup(username: $username, password: $password) {
+  mutation Signup($username: String!, $password: String!, $email: String!, $fullname: String!) {
+    signup(username: $username, password: $password, email: $email, fullname: $fullname) {
       token
       user {
         id
         username
+        email
+        fullname
       }
     }
   }
@@ -20,32 +22,35 @@ const SIGNUP_MUTATION = gql`
 
 export default function SignupPage() {
   const router = useRouter(); // Initialize useRouter
+  
   // State to manage form input values
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [fullname, setfullname] = useState('');
 
   // useMutation hook to execute the signup mutation
   const [signupUser, { data, loading, error }] = useMutation(SIGNUP_MUTATION);
 
   // Handle form submission
   const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault(); // Prevent default form submission behavior
+    event.preventDefault();
 
     try {
       // Call the signup mutation with the current username and password
       const response = await signupUser({
-        variables: { username, password },
+        variables: { username, password, email, fullname },
       });
 
-      // Log the response data (e.g., token and user info)
+      // Log the response data
       console.log('Signup successful:', response.data?.signup);
 
-      // Save the token (e.g., to localStorage) and redirect
+      // Save the token and redirect
       if (response.data?.signup.token) {
         // In a real app, use a more secure method like httpOnly cookies
         localStorage.setItem('authToken', response.data.signup.token);
-        alert('Signup successful! Redirecting to chatbot...'); // Use alert for now
-        router.push('/chatbot'); // Redirect to the chatbot page
+        alert('Signup successful! Redirecting to chatbot...');
+        router.push('/chatbot'); 
       }
     } catch (err: any) {
       // Display a user-friendly error message
@@ -54,14 +59,41 @@ export default function SignupPage() {
     }
   };
 
+  // Sign Up Page Design
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Sign Up</h2>
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Registrarme</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label htmlFor="fullname" className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre Completo
+            </label>
+            <input
+              type="text"
+              id="fullname"
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={fullname}
+              onChange={(e) => setfullname(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Correo electrónico
+            </label>
+            <input
+              type="email"
+              id="email"
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div>
             <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-              Username
+              Nombre de Usuario
             </label>
             <input
               type="text"
@@ -74,7 +106,7 @@ export default function SignupPage() {
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              Contraseña
             </label>
             <input
               type="password"
@@ -90,7 +122,7 @@ export default function SignupPage() {
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
             disabled={loading}
           >
-            {loading ? 'Signing up...' : 'Sign Up'}
+            {loading ? 'Registrando...' : 'Registrarme'}
           </button>
         </form>
 
@@ -99,13 +131,13 @@ export default function SignupPage() {
           <p className="mt-4 text-center text-red-600">Error: {error.message}</p>
         )}
         {data && data.signup.token && (
-          <p className="mt-4 text-center text-green-600">Account created successfully!</p>
+          <p className="mt-4 text-center text-green-600">Cuenta creada con éxito!</p>
         )}
 
         <p className="mt-6 text-center text-gray-600">
-          Already have an account?{' '}
+          ¿Ya tiene una cuenta?{' '}
           <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-            Login
+            Iniciar Sesión
           </Link>
         </p>
       </div>
