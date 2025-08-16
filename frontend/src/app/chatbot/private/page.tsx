@@ -415,7 +415,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
         <form onSubmit={handleFormSubmit} className="flex space-x-3">
           <input
             type="text"
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900"
             placeholder={infoCollectionStep === 'DONE' ? "Escribe tu mensaje..." : "Ingresa tu respuesta..."}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}

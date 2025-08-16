@@ -69,6 +69,7 @@ const typeDefs = `#graphql
       sex: String, # Added sex to mutation input
       age: Int # Added age to mutation input
     ): UserInfo!
+    adminChatbot(message: String!): ChatResponse # New admin chatbot mutation
   }
 
   type TestMessage {
@@ -195,6 +196,29 @@ const resolvers = {
         console.error("Error calling Python chatbot API:", error);
         throw new Error("Failed to get response from Python chatbot API");
       }
+    },
+
+    // New resolver for admin chatbot
+    adminChatbot: async (parent, { message }, { user, db }) => {
+      if (!user) {
+        throw new Error('Not authenticated.');
+      }
+      const { rows } = await db.query('SELECT username FROM users WHERE id = $1', [user.id]);
+      const loggedInUser = rows[0];
+      if (loggedInUser.username !== 'AdminUser') {
+        throw new Error('Unauthorized access.');
+      }
+
+      // Placeholder for future NLP logic
+      const response = await fetch('http://127.0.0.1:8000/chatbot' , {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+      });
+      const data = await response.json();
+      return data;
     },
 
     requestPasswordReset: async (parent, { email }, { db }) => {

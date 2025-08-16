@@ -6,6 +6,7 @@ import { gql, useQuery, useMutation } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import PublicChatbotPage from './public/page';
 import PrivateChatbotPage from './private/page';
+import AdminChatbotPage from './admin/page'; // Import the new admin page
 
 // Define the GraphQL query to get the current authenticated user's information
 const GET_ME_QUERY = gql`
@@ -30,6 +31,7 @@ export default function ChatbotPage() {
   const router = useRouter();
   const [user, setUser] = useState<{ id: string; username: string; email: string; fullname: string } | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false); // New state to check if user is admin
 
   const { loading: meQueryLoading, error: meQueryError, data: meQueryData, refetch: refetchMe } = useQuery(GET_ME_QUERY, {
     fetchPolicy: 'network-only',
@@ -37,16 +39,15 @@ export default function ChatbotPage() {
       console.error("Error fetching 'me' data, likely unauthenticated:", error.message);
       setUser(null);
       setIsAuthenticated(false);
+      setIsAdmin(false);
     },
   });
 
-  // Use the new logout mutation hook
   const [logoutUser] = useMutation(LOGOUT_MUTATION, {
     onCompleted: () => {
-      // Clear local state after server confirms logout
       setUser(null);
       setIsAuthenticated(false);
-      // Redirect to the main chatbot page to force re-evaluation
+      setIsAdmin(false);
       router.push('/chatbot');
     },
     onError: (error) => {
@@ -54,26 +55,29 @@ export default function ChatbotPage() {
     }
   });
 
-  // Effect to update authentication state based on 'me' query result
   useEffect(() => {
     if (!meQueryLoading) {
       if (meQueryData && meQueryData.me) {
         setUser(meQueryData.me);
         setIsAuthenticated(true);
+        // Check if the user is the admin
+        if (meQueryData.me.username === 'AdminUser') {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
       } else {
         setUser(null);
         setIsAuthenticated(false);
+        setIsAdmin(false);
       }
     }
   }, [meQueryLoading, meQueryData]);
 
-  // Function to handle logout
   const handleLogout = async () => {
-    // Call the logout mutation to clear the httpOnly cookie
     await logoutUser();
   };
 
-  // Show a loading state while authentication status is being determined
   if (meQueryLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -85,7 +89,6 @@ export default function ChatbotPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl flex flex-col h-[80vh] relative">
-        {/* Top right corner: Login/Signup or Username/Logout */}
         <div className="absolute top-4 right-4">
           {isAuthenticated && user ? (
             <div className="flex items-center space-x-2">
@@ -104,11 +107,11 @@ export default function ChatbotPage() {
           )}
         </div>
 
-        {/* Main Chatbot Title */}
         <h2 className="text-3xl font-bold text-center text-gray-800 mb-4 mt-12">NutriSaas Chatbot</h2>
 
-        {/* Conditional rendering of chatbot types */}
-        {isAuthenticated && user ? (
+        {isAdmin ? (
+          <AdminChatbotPage />
+        ) : isAuthenticated && user ? (
           <PrivateChatbotPage userId={user.id} username={user.username} />
         ) : (
           <PublicChatbotPage />
