@@ -5,7 +5,6 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 
 // --- GraphQL Definitions ---
 
-// Query to get user information, now including sex and age
 const GET_USER_INFO_QUERY = gql`
   query GetUserInfo($userId: String!) {
     userInfo(userId: $userId) {
@@ -13,13 +12,12 @@ const GET_USER_INFO_QUERY = gql`
       height_cm
       weight_kg
       allergies
-      sex # Added sex
-      age # Added age
+      sex
+      age
     }
   }
 `;
 
-// Mutation to save initial user information, now including sex and age
 const SAVE_INITIAL_INFO_MUTATION = gql`
   mutation SaveInitialInfo(
     $userId: String!,
@@ -27,8 +25,8 @@ const SAVE_INITIAL_INFO_MUTATION = gql`
     $height_cm: Int,
     $weight_kg: Int,
     $allergies: [String!],
-    $sex: String, # Added sex
-    $age: Int # Added age
+    $sex: String,
+    $age: Int
   ) {
     saveInitialInfo(
       userId: $userId,
@@ -36,15 +34,14 @@ const SAVE_INITIAL_INFO_MUTATION = gql`
       height_cm: $height_cm,
       weight_kg: $weight_kg,
       allergies: $allergies,
-      sex: $sex, # Added sex
-      age: $age # Added age
+      sex: $sex,
+      age: $age
     ) {
       initialInfoCollected
     }
   }
 `;
 
-// General chatbot mutation (for post-info collection phase)
 const CHATBOT_MUTATION = gql`
   mutation Chatbot($message: String!) {
     chatbot(message: $message) {
@@ -58,8 +55,8 @@ interface ChatMessage {
   id: number;
   text: string;
   sender: 'user' | 'bot';
-  options?: string[]; // For bot-provided buttons
-  isUserOption?: boolean; // To mark if a user's message came from a button click
+  options?: string[];
+  isUserOption?: boolean;
 }
 
 // --- Chat Message Component ---
@@ -101,24 +98,21 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
   const [infoCollectionStep, setInfoCollectionStep] = useState<string>('LOADING_USER_INFO');
 
   // Temporary state to hold collected info before final database save
-  const [tempSex, setTempSex] = useState<string | null>(null); // New: for sex
-  const [tempAge, setTempAge] = useState<number | null>(null); // New: for age
+  const [tempSex, setTempSex] = useState<string | null>(null);
+  const [tempAge, setTempAge] = useState<number | null>(null);
   const [tempHeight, setTempHeight] = useState<number | null>(null);
   const [tempWeight, setTempWeight] = useState<number | null>(null);
   const [tempAllergies, setTempAllergies] = useState<string[]>([]);
 
 
   // --- GraphQL Hooks ---
-
-  // 1. Query to fetch user_information on component mount
-  const { loading: queryLoading, error: queryError } = useQuery(GET_USER_INFO_QUERY, {
+  const { loading: queryLoading } = useQuery(GET_USER_INFO_QUERY, {
     variables: { userId: ACTUAL_USER_ID },
     skip: !ACTUAL_USER_ID,
     onCompleted: (data) => {
       if (data?.userInfo?.initialInfoCollected) {
         setInitialInfoCollected(true);
         setInfoCollectionStep('DONE');
-        sendBotMessage("¡Hola de nuevo! ¿En qué te puedo ayudar hoy?");
       } else {
         setInfoCollectionStep('INTRO_PERSONAL_INFO');
       }
@@ -126,29 +120,27 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     onError: (err) => {
       console.error("Error fetching user info:", err);
       setInfoCollectionStep('INTRO_PERSONAL_INFO');
-    }
+    },
   });
 
-  // 2. Mutation to save initial user information
   const [saveInitialInfoMutation, { loading: saveLoading }] = useMutation(SAVE_INITIAL_INFO_MUTATION, {
     onCompleted: (mutationData) => {
       if (mutationData.saveInitialInfo?.initialInfoCollected) {
         setInitialInfoCollected(true);
-        sendBotMessage("¡Gracias! He guardado tu información. ¿En qué te puedo ayudar el día de hoy?");
         setInfoCollectionStep('DONE');
+        // The welcome message is now handled by a dedicated useEffect
       }
     },
     onError: (error) => {
       console.error("Error saving initial info:", error);
       sendBotMessage("Lo siento, no pude guardar tu información en este momento. Por favor, inténtalo de nuevo.");
-      // Fallback to a safe step if saving fails, e.g., re-ask allergies or general info
-      setInfoCollectionStep('INTRO_PERSONAL_INFO'); 
-    }
+      setInfoCollectionStep('INTRO_PERSONAL_INFO');
+    },
   });
 
-  // 3. Mutation for general chatbot interaction (post-info collection)
   const [sendChatMessage, { loading: chatLoading }] = useMutation(CHATBOT_MUTATION, {
     onCompleted: (data) => {
+      // Assuming a simple hardcoded response for now
       sendBotMessage("Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.");
       sendBotMessage("¿Hay algo más en lo que te pueda ayudar?");
       setInputMessage('');
@@ -190,23 +182,30 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // New useEffect for the initial greeting message for existing users
   useEffect(() => {
-    // Only proceed if not loading, info not collected, correct step, no messages yet, AND userId is available
-    if (!queryLoading && !initialInfoCollected && infoCollectionStep === 'INTRO_PERSONAL_INFO' && messages.length === 0 && ACTUAL_USER_ID) {
+    if (infoCollectionStep === 'DONE' && messages.length === 0) {
+      sendBotMessage("¡Hola de nuevo! ¿En qué te puedo ayudar hoy?");
+    }
+  }, [infoCollectionStep, messages.length, sendBotMessage]);
+
+  // Existing useEffect for the information collection flow for new users
+  useEffect(() => {
+    if (infoCollectionStep === 'INTRO_PERSONAL_INFO' && messages.length === 0) {
       sendBotMessage("Para personalizar tu experiencia, necesito conocerte mejor.");
       setTimeout(() => {
-        sendBotMessage("¿Cuál es tu sexo?", ["♂️ Masculino", "♀️ Femenino"]); // Ask for sex first
+        sendBotMessage("¿Cuál es tu sexo?", ["♂️ Masculino", "♀️ Femenino"]);
         setInfoCollectionStep('INTRO_SEX');
       }, 1000);
     }
-  }, [queryLoading, initialInfoCollected, infoCollectionStep, messages.length, sendBotMessage, ACTUAL_USER_ID]);
+  }, [infoCollectionStep, messages.length, sendBotMessage]);
 
 
   // --- Main Logic for Handling User Responses ---
   const handleUserResponse = async (responseText: string) => {
     sendUserMessage(responseText);
 
-    const numericValue = parseInt(responseText); // For age, height, weight validation
+    const numericValue = parseInt(responseText);
 
     switch (infoCollectionStep) {
       case 'INTRO_SEX':
@@ -230,7 +229,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
         break;
 
       case 'INTRO_AGE':
-        if (!isNaN(numericValue) && numericValue > 0 && numericValue < 120) { // Basic age validation
+        if (!isNaN(numericValue) && numericValue > 0 && numericValue < 120) {
           setTempAge(numericValue);
           sendBotMessage(`Perfecto, ${numericValue} años registrado. ¿Estás seguro de que esta información es correcta?`, ["✅ Sí, continuar", "✏️ Corregir edad"]);
           setInfoCollectionStep('AGE_CONFIRM');
@@ -281,7 +280,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
 
       case 'WEIGHT_CONFIRM':
         if (responseText === "✅ Sí, continuar") {
-          sendBotMessage("¿Tienes alguna alergia alimentaria?", ["✅ Sí", "❌ No"]); // Ask if they have allergies
+          sendBotMessage("¿Tienes alguna alergia alimentaria?", ["✅ Sí", "❌ No"]);
           setInfoCollectionStep('INTRO_ALLERGIES_QUESTION');
         } else if (responseText === "✏️ Corregir peso") {
           sendBotMessage("Por favor, ingresa tu peso actual nuevamente (en kg).");
@@ -292,10 +291,10 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
       case 'INTRO_ALLERGIES_QUESTION':
         if (responseText === "✅ Sí") {
           sendBotMessage("¿A qué eres alérgico?");
-          setInfoCollectionStep('INTRO_ALLERGIES_INPUT'); // Move to allergy input
+          setInfoCollectionStep('INTRO_ALLERGIES_INPUT');
         } else if (responseText === "❌ No") {
-          setTempAllergies([]); // Ensure allergies array is empty
-          setInfoCollectionStep('SAVING_INFO'); // Skip allergy input, go straight to saving
+          setTempAllergies([]);
+          setInfoCollectionStep('SAVING_INFO');
           await saveInitialInfoMutation({
             variables: {
               userId: ACTUAL_USER_ID,
@@ -304,7 +303,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
               age: tempAge,
               height_cm: tempHeight,
               weight_kg: tempWeight,
-              allergies: [], // Explicitly empty if user selected 'No'
+              allergies: [],
             }
           });
         } else {
@@ -312,7 +311,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
         }
         break;
 
-      case 'INTRO_ALLERGIES_INPUT': // User provides first allergy
+      case 'INTRO_ALLERGIES_INPUT':
         if (responseText.trim()) {
           setTempAllergies([responseText.trim()]);
           sendBotMessage(`He registrado: "${responseText.trim()}"`);
@@ -341,12 +340,10 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
             }
           });
         } else {
-          // User typed another allergy directly
           const updatedAllergies = [...tempAllergies, responseText.trim()];
           setTempAllergies(updatedAllergies);
           sendBotMessage(`He registrado: "${responseText.trim()}"`);
           sendBotMessage("¿Hay alguna otra alergia que deba conocer?", ["➕ Agregar otra alergia", "✅ No, eso es todo"]);
-          // Remain in ALLERGIES_ADD_MORE state
         }
         break;
 
@@ -355,7 +352,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
           const updatedAllergies = [...tempAllergies, responseText.trim()];
           setTempAllergies(updatedAllergies);
           sendBotMessage(`He registrado: "${responseText.trim()}"`);
-          sendBotMessage("¿Hay alguna otra alergia que deba conocer?", ["➕ Agregar otra alergia", "✅ No, eso es todo"]);
+          sendBotMessage("¿Hay algo más en lo que te pueda ayudar?");
           setInfoCollectionStep('ALLERGIES_ADD_MORE');
         } else {
           sendBotMessage("Por favor, ingresa la alergia o selecciona una opción.");
@@ -388,12 +385,11 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
   const lastBotMessage = messages[messages.length - 1];
   const lastBotHasOptions = lastBotMessage?.sender === 'bot' && lastBotMessage.options && lastBotMessage.options.length > 0;
 
-  // Determine if the text input should be shown
   const showTextInput = (
-    infoCollectionStep === 'INTRO_AGE' || // Age is text input
+    infoCollectionStep === 'INTRO_AGE' ||
     infoCollectionStep === 'INTRO_HEIGHT' ||
     infoCollectionStep === 'INTRO_WEIGHT' ||
-    infoCollectionStep === 'INTRO_ALLERGIES_INPUT' || // New state for allergy input
+    infoCollectionStep === 'INTRO_ALLERGIES_INPUT' ||
     infoCollectionStep === 'ADD_NEXT_ALLERGY' ||
     infoCollectionStep === 'DONE'
   );
@@ -416,7 +412,6 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
       </div>
 
       {showTextInput && !lastBotHasOptions ? (
-        // Show text input if required by step and no active bot options are present
         <form onSubmit={handleFormSubmit} className="flex space-x-3">
           <input
             type="text"
@@ -435,7 +430,6 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
           </button>
         </form>
       ) : (
-        // Show buttons if the last bot message has options and text input is not explicitly forced
         lastBotHasOptions && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {lastBotMessage.options?.map((option, index) => (
