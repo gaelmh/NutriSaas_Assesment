@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react'; // Keep useState and useEffect for consistency if needed elsewhere
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { gql, useQuery } from '@apollo/client'; // Keep Apollo imports for backend connection check
+import { gql, useQuery, useMutation } from '@apollo/client';
 
 // Define the GraphQL query to test backend connection
 const GET_HELLO_MESSAGE = gql`
@@ -12,14 +12,34 @@ const GET_HELLO_MESSAGE = gql`
   }
 `;
 
+// Define the new GraphQL mutation for logging out
+const LOGOUT_MUTATION = gql`
+  mutation Logout {
+    logout
+  }
+`;
+
 export default function HomePage() {
-  const router = useRouter(); // Initialize useRouter hook
-  const { loading, error, data } = useQuery(GET_HELLO_MESSAGE); // Use Apollo hook to check backend connection
+  const router = useRouter();
+  const { loading, error, data } = useQuery(GET_HELLO_MESSAGE);
+
+  // Use the new logout mutation hook
+  const [logoutUser] = useMutation(LOGOUT_MUTATION, {
+    onCompleted: () => {
+      // Redirect to the main chatbot page only after the logout is successful
+      router.push('/chatbot');
+    },
+    onError: (error) => {
+      console.error("Error during logout:", error.message);
+      // Redirect anyway to try and clear the state, even if the logout mutation failed
+      router.push('/chatbot');
+    }
+  });
 
   // Function to handle "Continuar como Invitado" click
-  const handleContinueAsGuest = () => {
-    // Explicitly redirect to the public chatbot page
-    router.push('/chatbot');
+  const handleContinueAsGuest = async () => {
+    // Call the logout mutation to clear any existing httpOnly cookie on the server
+    await logoutUser();
   };
 
   if (loading) return <p className="text-center text-lg text-gray-700">Cargando...</p>;
@@ -39,9 +59,8 @@ export default function HomePage() {
         <Link href="/signup" passHref className="py-3 px-8 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition duration-300 ease-in-out text-xl font-semibold text-center">
           Registrarme
         </Link>
-        {/* Modified: Changed Link to a button with onClick handler */}
         <button
-          onClick={handleContinueAsGuest} // Use the new handler for redirection
+          onClick={handleContinueAsGuest}
           className="py-3 px-8 bg-gray-600 text-white rounded-lg shadow-md hover:bg-gray-700 transition duration-300 ease-in-out text-xl font-semibold text-center"
         >
           Continuar como Invitado

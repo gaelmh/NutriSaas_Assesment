@@ -48,6 +48,7 @@ const typeDefs = `#graphql
   type Mutation {
     signup(username: String!, password: String!, email: String!, fullname: String!): AuthPayload
     login(username: String!, password: String!): AuthPayload
+    logout: String! # Added logout mutation
     chatbot(message: String!): ChatResponse
     requestPasswordReset(email: String!): String!
     resetPassword(token: String!, newPassword: String!): String!
@@ -169,6 +170,16 @@ const resolvers = {
       };
     },
 
+    // New logout mutation to clear the httpOnly cookie from the server
+    logout: async (parent, args, { res }) => {
+      res.clearCookie('authToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+      });
+      return 'Logged out successfully.';
+    },
+
     chatbot: async (parent, { message }) => {
       try {
         const response = await fetch('http://127.0.0.1:8000/chatbot' , {
@@ -234,12 +245,12 @@ const resolvers = {
       return 'Password has been successfully reset.';
     },
 
-    saveInitialInfo: async (parent, { userId, username, height_cm, weight_kg, allergies, sex, age }, { user }) => { // Added sex, age
+    saveInitialInfo: async (parent, { userId, username, height_cm, weight_kg, allergies, sex, age }, { user }) => {
       if (!user || String(user.id) !== userId) {
         throw new Error('Unauthorized attempt to save user information.');
       }
       try {
-        const savedInfo = await saveInitialUserInfo(userId, username, height_cm, weight_kg, allergies, sex, age); // Pass sex, age
+        const savedInfo = await saveInitialUserInfo(userId, username, height_cm, weight_kg, allergies, sex, age);
         return savedInfo;
       } catch (error) {
         console.error('Resolver Error in saveInitialInfo:', error.message, error.stack);
@@ -247,12 +258,12 @@ const resolvers = {
       }
     },
 
-    updateUserInfo: async (parent, { userId, height_cm, weight_kg, allergies, sex, age }, { user }) => { // Added sex, age
+    updateUserInfo: async (parent, { userId, height_cm, weight_kg, allergies, sex, age }, { user }) => {
       if (!user || String(user.id) !== userId) {
         throw new Error('Unauthorized attempt to update user information.');
       }
       try {
-        const updatedInfo = await saveInitialUserInfo(userId, user.username, height_cm, weight_kg, allergies, sex, age); // Pass sex, age
+        const updatedInfo = await saveInitialUserInfo(userId, user.username, height_cm, weight_kg, allergies, sex, age);
         return updatedInfo;
       } catch (error) {
         console.error('Resolver Error in updateUserInfo:', error.message, error.stack);

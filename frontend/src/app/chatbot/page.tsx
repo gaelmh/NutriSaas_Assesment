@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { gql, useQuery } from '@apollo/client';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { gql, useQuery, useMutation } from '@apollo/client';
+import { useRouter } from 'next/navigation';
 import PublicChatbotPage from './public/page';
 import PrivateChatbotPage from './private/page';
 
@@ -19,8 +19,15 @@ const GET_ME_QUERY = gql`
   }
 `;
 
+// Define the new GraphQL mutation for logging out
+const LOGOUT_MUTATION = gql`
+  mutation Logout {
+    logout
+  }
+`;
+
 export default function ChatbotPage() {
-  const router = useRouter(); // Initialize useRouter hook
+  const router = useRouter();
   const [user, setUser] = useState<{ id: string; username: string; email: string; fullname: string } | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -31,6 +38,20 @@ export default function ChatbotPage() {
       setUser(null);
       setIsAuthenticated(false);
     },
+  });
+
+  // Use the new logout mutation hook
+  const [logoutUser] = useMutation(LOGOUT_MUTATION, {
+    onCompleted: () => {
+      // Clear local state after server confirms logout
+      setUser(null);
+      setIsAuthenticated(false);
+      // Redirect to the main chatbot page to force re-evaluation
+      router.push('/chatbot');
+    },
+    onError: (error) => {
+      console.error("Error during logout:", error.message);
+    }
   });
 
   // Effect to update authentication state based on 'me' query result
@@ -47,18 +68,9 @@ export default function ChatbotPage() {
   }, [meQueryLoading, meQueryData]);
 
   // Function to handle logout
-  const handleLogout = () => {
-    // Clear the authentication cookie by setting its expiration to the past
-    document.cookie = "authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    
-    // Immediately update local state to reflect the logged-out status
-    setUser(null);
-    setIsAuthenticated(false);
-
-    // Redirect to the main chatbot page. This will cause the component to re-evaluate
-    // its authentication status, and since the cookie is cleared, it will render
-    // the PublicChatbotPage.
-    router.push('/chatbot');
+  const handleLogout = async () => {
+    // Call the logout mutation to clear the httpOnly cookie
+    await logoutUser();
   };
 
   // Show a loading state while authentication status is being determined
