@@ -27,6 +27,7 @@ nutrisaas_assessment.pdf
 /python_nlp/data/dev.spacy
 /python_nlp/data/train.spacy
 /python_nlp/output
+/python_nlp/enhanced_output
 /python_nlp/venv
 
 # Next.js - Ignores the Next.js build output and the export directory
