@@ -1,38 +1,36 @@
-### NutriSaas: Technical Assessment
+## NutriSaas: Technical Assessment
 
-#### Project Description
+### Project Description
 This project is a full-stack application built as a technical assessment for Grupo Bitsper. It features a nutritional chatbot designed to interact with users, providing a personalized and administrative experience.
 
 ***
 
-#### Key Features
+### Key Features
 * **Main Interface:** The application provides a main interface where the user can decide whether to sing up, log in, or continue as a guest.
-* [cite_start]**User Authentication:** Includes user signup, login, and password reset functionalities[cite: 172, 174].
-* **Public Chat Mode:** The chatbot offers a separate experience for guests, providing information about the service without requiring an account.
-* [cite_start]**Personalized Chatbot:** For logged-in users, the chatbot collects and stores personal data like sex, age, height, weight, and allergies to offer a customized experience[cite: 171].
-* **Admin Dashboard:** A dedicated dashboard for administrative users to interact with the chatbot.
+* **Public Chatbot Interface:** The chatbot offers provides information about the service without requiring an account. 
+* **Private Chatbot Interface:** The chatbot offers a personalized experience for logged-in users, allowing them to interact with the chatbot and store their personal data.
+* **Admin Chatbot Interface:** A dedicated interface for administrative users to interact with the chatbot.
 
 ***
 
-#### Tech Stack
+### Tech Stack
 The project is composed of three main services:
-
 * **Frontend**: Built with Next.js, React, and Tailwind CSS. It uses Apollo Client for GraphQL operations.
 * **Backend**: A Node.js application using Express and Apollo Server. It connects to a PostgreSQL database and uses `bcrypt` for password hashing, `jsonwebtoken` for authentication, and `express-rate-limit` for security.
 * **NLP Service**: A Python service built with FastAPI and the spaCy library (`en_core_web_sm` model) for processing chatbot messages.
 
 ***
 
-#### Prerequisites
+### Prerequisites
 To run this project, you need to have the following installed:
 * Node.js (v18 or higher)
 * Python (v3.12 or higher)
-* Docker (recommended for the database) or a local PostgreSQL instance
+* Local PostgreSQL instance
 * npm or yarn
 
 ***
 
-#### Setup and Installation
+### Setup and Installation
 Follow these steps to set up and run each part of the project.
 
 1.  **Database Setup**
@@ -106,7 +104,7 @@ Follow these steps to set up and run each part of the project.
 
 ***
 
-#### Usage
+### Usage
 * Open your browser and navigate to `http://localhost:3000`.
 * You can interact with the public chatbot, or you can register a new account to experience the personalized flow.
 * When a new user logs in for the first time, the chatbot will guide them through a series of questions to collect their personal information.
