@@ -18,14 +18,20 @@ import os
 
 # Load training JSON file
 try:
-    with open(os.path.join(os.path.dirname(__file__), training_data.json), 'r', encoding='utf-8') as f:
+    with open(os.path.join(os.path.dirname(__file__), 'data', 'training_data.json'), 'r', encoding='utf-8') as f:
         training_data = json.load(f)
 except FileNotFoundError:
     print("Error: Training data file not found.")
-    data = {"intents": []}
+    training_data = {"intents": []}
 
-# Load a pre-trained small English NLP model
-nlp = spacy.load("en_core_web_sm")
+# Load your trained Spanish NLP model
+# Make sure to replace 'path/to/your/trained/model' with the actual path to your trained model
+try:
+    nlp = spacy.load("./model-best")  # Adjust path to your trained model
+except IOError:
+    print("Error: Trained model not found. Make sure you've trained the model first.")
+    # Fallback to blank Spanish model
+    nlp = spacy.blank("es")
 
 # Define a Pydantic model for the incoming request body
 class ChatRequest(BaseModel):
@@ -42,36 +48,36 @@ def read_root():
 # Define a POST endpoint for the "/chatbot" URL
 @app.post("/chatbot")
 def process_message(request: ChatRequest):
-    message = request.message.lower()
+    message = request.message
 
-    # Use a pre-trained spaCy model for text processing
+    # Use your trained spaCy model for intent classification
     doc = nlp(message)
-
-    # Simple keyword-based intent recognition
-    if "planes" in message or "planes de comida" in message:
-        intent_tag = "pricing"
-    elif "nutrisaas" in message or "que es" in message:
-        intent_tag = "about_nutrisaas"
-    elif "preguntas" in message or "frecuentes" in message or "ayuda" in message:
-        intent_tag = "faq"
-    elif "contactar" in message or "asesor" in message:
-        intent_tag = "contact"
-    elif "registrarme" in message or "registrar" in message or "cuenta" in message:
-        intent_tag = "register"
-    elif "hola" in message or "hi" in message:
-        intent_tag = "greeting"
+    
+    # Get the predicted intent from the model
+    # The model returns probabilities for each category
+    if doc.cats:
+        # Find the intent with the highest probability
+        predicted_intent = max(doc.cats, key=doc.cats.get)
+        confidence = doc.cats[predicted_intent]
+        
+        # Set a confidence threshold (adjusted for current model performance)
+        confidence_threshold = 0.05  # Lowered from 0.5 to work with current model
+        
+        if confidence < confidence_threshold:
+            predicted_intent = "fallback"
     else:
-        intent_tag = "fallback"
+        predicted_intent = "fallback"
 
-    # Find the matching intent and a random response
-    for intent in data["intents"]:
-        if intent["tag"] == intent_tag:
+    # Find the matching intent and return a random response
+    for intent in training_data["intents"]:
+        if intent["tag"] == predicted_intent:
             response = random.choice(intent["responses"])
-            return{"response": response}
+            return {"response": response, "intent": predicted_intent, "confidence": confidence if 'confidence' in locals() else 0.0}
     
     # Fallback response if no intent is matched
-    return{"response": "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento."}
+    return {"response": "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.", "intent": "fallback", "confidence": 0.0}
 
 # Comments on how to activate virtual environment and run server:
 # To activate venv --> venv\Scripts\activate
+# To train the model --> python -m spacy train config.cfg --output ./output --paths.train ./data/train.spacy --paths.dev ./data/dev.spacy
 # To run NLP --> uvicorn main:app --reload
