@@ -26,12 +26,12 @@ const GUEST_CONVERSATION_FLOW = {
   // Initial/Welcome message
   INITIAL: {
     botMessage: "¡Hola! Bienvenido a NutriSaas 🥗 ¿En qué puedo ayudarte hoy?",
-    options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "Otro"],
+    options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "🤷 Otro"],
   },
   // Return to initial options 
   RETURN_TO_INITIAL: {
     botMessage: "¿Hay algo más en lo que te pueda ayudar?",
-    options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "Otro"],
+    options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "🤷 Otro"],
   },
   // Services (plan) options
   PLAN_SELECTION: {
@@ -67,7 +67,7 @@ const GUEST_CONVERSATION_FLOW = {
   },
   // Frequent questions
   FAQ: {
-    botMessage: "Aquí puedes encontrar respuestas a las preguntas más frecuentes: [Link a FAQ]",
+    botMessage: `Aquí puedes encontrar respuestas a las preguntas más frecuentes: <a href="/chatbot/public/FAQs" target="_blank" class="text-blue-500 underline hover:text-blue-700">FAQs</a>`,
     options: ["⬅️ Volver al menú principal"],
   },
   // Contanct information
@@ -101,7 +101,7 @@ const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
           : 'bg-gray-200 text-gray-800'
       }`}
     >
-      {msg.text}
+      <span dangerouslySetInnerHTML={{ __html: msg.text }} />
     </div>
   </div>
 );
@@ -193,7 +193,7 @@ export default function PublicChatbotPage() {
     };
     setMessages((prevMessages) => [...prevMessages, userMessage]);
 
-    if (option === "Otro") {
+    if (option === "🤷 Otro") {
       setShowGuestTextInput(true);
       setMessages((prevMessages) => [
         ...prevMessages,
