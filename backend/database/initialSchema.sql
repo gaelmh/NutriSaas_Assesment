@@ -33,6 +33,7 @@ CREATE TABLE user_information (
 Will contain information about the chat_bot answers */
 CREATE TABLE chatbot_data (
   id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
