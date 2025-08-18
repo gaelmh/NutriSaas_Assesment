@@ -1,7 +1,9 @@
-# Assesment details
+# This file specifies which files and directories should be ignored by Git
+
+# Assesment details - Ignores the PDF file of the assessment
 nutrisaas_assessment.pdf
 
-# Dependencies
+# Dependencies - Ignores files and directories created by various package managers
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,49 +12,47 @@ nutrisaas_assessment.pdf
 !.yarn/releases
 !.yarn/versions
 
-# Backend
+# Backend - Ignores the Node.js dependencies directory for the backend
 /backend/node_modules
 
-# Frontend
+# Frontend - Ignores the Node.js dependencies and the Next.js build output directory for the frontend
 /frontend/node_modules
 /frontend/.next
 
-# Environment variables
+# Environment - Ignores all files starting with `.env`, preventing sensitive information from being committed
 .env*
 
-# Python
+# Python - Ignores Python cache files and the virtual environment directory
 /python_nlp/__pycache__
 /python_nlp/venv
 
-# Next.js
+# Next.js - Ignores the Next.js build output and the export directory
 /.next/
 /out/
 
-# Build results
+# Build results - Ignores directories containing test coverage reports and build artifacts
 /coverage
 /build
 
-# Misc
+# Misc - Ignores macOS-specific metadata files and private key files
 .DS_Store
 *.pem
 
-# Debug
+# Debug - Ignores various debug and error log files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Vercel
+# Vercel - Ignores the directory used by the Vercel CLI
 .vercel
 
-# TypeScript
+# TypeScript - Ignores TypeScript build information files and the Next.js declaration file
 *.tsbuildinfo
 next-env.d.ts
 
-# Visual Studio Code
+# Visual Studio - Ignores the VS Code settings, cache directory and VS Studio specific files
 .vscode/
-
-# Visual Studio
 .vs/
 *.suo
 *.user
