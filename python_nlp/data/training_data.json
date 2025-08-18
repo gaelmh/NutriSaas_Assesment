@@ -1,0 +1,137 @@
+{
+  "intents": [
+    {
+      "tag": "greeting",
+      "patterns": [
+        "Hola",
+        "Hola, cómo estás?",
+        "Buenos días",
+        "Buenas tardes",
+        "Qué tal",
+        "Hey",
+        "hi",
+        "hello"
+      ],
+      "responses": [
+        "¡Hola! Bienvenido a NutriSaas 🥗 ¿En qué puedo ayudarte hoy?"
+      ]
+    },
+    {
+      "tag": "about_nutrisaas",
+      "patterns": [
+        "¿Qué es NutriSaas?",
+        "Háblame de NutriSaas",
+        "Explica tu servicio",
+        "Qué servicios ofrecen"
+      ],
+      "responses": [
+        "NutriSaas es una plataforma que te ayuda a alcanzar tus metas de nutrición con planes personalizados."
+      ]
+    },
+    {
+      "tag": "pricing",
+      "patterns": [
+        "¿Cuánto cuestan sus planes?",
+        "Precios",
+        "Costo",
+        "Quiero saber los planes",
+        "Dime los planes",
+        "Cuánto pagar",
+        "qué planes tienen",
+        "planes de suscripción"
+      ],
+      "responses": [
+        "Esta es la información sobre nuestros planes..."
+      ]
+    },
+    {
+      "tag": "nutrition",
+      "patterns": [
+        "calorías",
+        "proteína",
+        "carbohidratos",
+        "vitaminas",
+        "nutrición",
+        "quiero saber sobre dietas"
+      ],
+      "responses": [
+        "Puedo proporcionarte información sobre nutrición. ¿Sobre qué nutriente te gustaría saber más?"
+      ]
+    },
+    {
+      "tag": "allergies",
+      "patterns": [
+        "soy alérgico a",
+        "tengo intolerancia a",
+        "no puedo comer",
+        "me hace daño",
+        "alergia"
+      ],
+      "responses": [
+        "Por favor, especifica tus alergias y las tendré en cuenta para tus planes de comida."
+      ]
+    },
+    {
+      "tag": "goals",
+      "patterns": [
+        "quiero bajar de peso",
+        "subir masa muscular",
+        "objetivos",
+        "cómo puedo mantenerme",
+        "quiero definir mi cuerpo"
+      ],
+      "responses": [
+        "Entiendo tus objetivos. Para ayudarte, necesito saber más sobre ti. ¿Cuál es tu sexo?"
+      ]
+    },
+    {
+      "tag": "support",
+      "patterns": [
+        "necesito ayuda",
+        "tengo un problema",
+        "hay un error",
+        "no funciona algo",
+        "contacto",
+        "hablar con un asesor"
+      ],
+      "responses": [
+        "Veo que necesitas ayuda especializada. ¿Te gustaría hablar con uno de nuestros asesores?"
+      ]
+    },
+    {
+      "tag": "admin_query",
+      "patterns": [
+        "muéstrame las alturas de los usuarios",
+        "dame el reporte de altura",
+        "usuarios por altura",
+        "estadísticas de altura"
+      ],
+      "responses": [
+        "📊 Alturas registradas:"
+      ]
+    },
+    {
+      "tag": "register",
+      "patterns": [
+        "Quiero registrarme",
+        "Crear una cuenta",
+        "Registrarme ahora"
+      ],
+      "responses": [
+        "¡Excelente! Puedes registrarte en la página de registro."
+      ]
+    },
+    {
+      "tag": "fallback",
+      "patterns": [
+        "No entiendo",
+        "No sé qué decir",
+        "¿Qué significa eso?",
+        "No entendí la pregunta"
+      ],
+      "responses": [
+        "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento."
+      ]
+    }
+  ]
+}
