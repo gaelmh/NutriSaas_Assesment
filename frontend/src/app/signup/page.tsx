@@ -46,9 +46,14 @@ export default function SignupPage() {
       });
       alert('Signup successful! Redirecting to chatbot...');
       router.push('/chatbot');
-    } catch (err: any) {
-      alert(`Signup failed: ${err.message}`);
-      console.error('Signup error:', err);
+    } catch (err: unknown) {
+    if (err instanceof Error) {
+        alert(`Signup failed: ${err.message}`);
+        console.error('Signup error:', err);
+    } else {
+        alert('An unknown error occurred during signup.');
+        console.error('Signup error:', err);
+      }
     }
   };
 
