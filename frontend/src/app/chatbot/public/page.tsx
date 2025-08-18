@@ -1,9 +1,16 @@
+// Client-side component, necessary for handling private chatbot interactions
 'use client';
 
+// Import React hooks for state management and side effects
 import { useState, useRef, useEffect, useCallback } from 'react';
+
+// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation } from '@apollo/client';
+
+// Import `useRouter` for programmatic navigation in Next.js
 import { useRouter } from 'next/navigation';
 
+// Define the GraphQL mutation to send a message admin chatbot
 const CHATBOT_MUTATION = gql`
   mutation Chatbot($message: String!) {
     chatbot(message: $message) {
@@ -12,6 +19,7 @@ const CHATBOT_MUTATION = gql`
   }
 `;
 
+// Define the interface for a chat message object
 interface ChatMessage {
   id: number;
   text: string;
@@ -28,16 +36,19 @@ const GUEST_CONVERSATION_FLOW = {
     botMessage: "¡Hola! Bienvenido a NutriSaas 🥗 ¿En qué puedo ayudarte hoy?",
     options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "🤷 Otro"],
   },
-  // Return to initial options 
+
+  // Options for returning to the main menu 
   RETURN_TO_INITIAL: {
     botMessage: "¿Hay algo más en lo que te pueda ayudar?",
     options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "🤷 Otro"],
   },
-  // Services (plan) options
+
+  // Options for selecting a plan.
   PLAN_SELECTION: {
     botMessage: "Tenemos 3 planes diseñados para ti:",
     options: ["🌟 Plan Básico - $9.99/mes", "💎 Plan Premium - $19.99/mes", "🏆 Plan Pro - $39.99/mes", "⬅️ Volver al menú principal"],
   },
+  // Details for the Basic plan
   BASIC_PLAN_DETAILS: {
     botMessage:
     "El Plan Básico incluye:\n" +
@@ -46,6 +57,7 @@ const GUEST_CONVERSATION_FLOW = {
     "• ✅ Acceso limitado a recetas",
     options: ["📝 Registrarme ahora", "💬 Hablar con un asesor", "⬅️ Ver otros planes"],
   },
+  // Details for the Premium plan
   PREMIUM_PLAN_DETAILS: {
     botMessage: 
     "El Plan Premium incluye:\n" +
@@ -55,6 +67,7 @@ const GUEST_CONVERSATION_FLOW = {
     "• ✅ Acceso a +500 recetas",
     options: ["📝 Registrarme ahora", "💬 Hablar con un asesor", "⬅️ Ver otros planes"],
   },
+  // Details for the Pro plan
   PRO_PLAN_DETAILS: {
     botMessage:     
     "El Plan Pro incluye:\n" +
@@ -65,28 +78,33 @@ const GUEST_CONVERSATION_FLOW = {
     "• ✅ Integración con dispositivos de seguimiento de actividad física",
     options: ["📝 Registrarme ahora", "💬 Hablar con un asesor", "⬅️ Ver otros planes"],
   },
-  // Frequent questions
+
+  // FAQ option, which includes a link to the FAQ page
   FAQ: {
     botMessage: `Aquí puedes encontrar respuestas a las preguntas más frecuentes: <a href="/chatbot/public/FAQs" target="_blank" class="text-blue-500 underline hover:text-blue-700">FAQs</a>`,
     options: ["⬅️ Volver al menú principal"],
   },
-  // Contanct information
+  
+  // Contact advisor information
   CONTACT_ADVISOR: {
     botMessage: "Por el momento ninguno de nustros asesores está disponible. Puedes contactar a un asesor por email contact@nutrisaas.com o llamando al +1 234 567 8900.",
     options: ["⬅️ Volver al menú principal"],
   },
-  // What is NutriSaaS
+
+  // Description of NutriSaaS
   WHAT_IS_NUTRISAAS: {
     botMessage: "NutriSaas es una plataforma que te ayuda a alcanzar tus metas de nutrición con planes personalizados.",
     options: ["⬅️ Volver al menú principal"],
   },
-  // Default asnswer for user input (change when NLP is ready) 
+
+  // // Temporary default response for user input (MODIFY TO TAKE NLP ANSWER) 
   OTHER_INPUT: {
     botMessage: "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.",
     options: [],
   },
 };
 
+// React component for displaying a single chat message
 const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   <div
     key={msg.id}
@@ -106,13 +124,15 @@ const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   </div>
 );
 
+// The main component for the public chatbot page
 export default function PublicChatbotPage() {
   const router = useRouter();
-  const [inputMessage, setInputMessage] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [guestState, setGuestState] = useState('INITIAL');
-  const [showGuestTextInput, setShowGuestTextInput] = useState(false);
+  const [inputMessage, setInputMessage] = useState(''); // State for the text input field
+  const [messages, setMessages] = useState<ChatMessage[]>([]); // State for the chat messages list
+  const [guestState, setGuestState] = useState('INITIAL'); // State to track the current position in the conversational flow
+  const [showGuestTextInput, setShowGuestTextInput] = useState(false); // State to conditionally show the text input field
 
+  // Hook to send messages to the chatbot backend
   const [sendChatMessage, { loading }] = useMutation(CHATBOT_MUTATION, {
     onError: (error) => {
       console.error('Chatbot API error:', error);
@@ -128,12 +148,15 @@ export default function PublicChatbotPage() {
     },
   });
 
+  // Ref to enable auto-scrolling to the latest message
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to the bottom of the message list whenever messages are updated
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Effect to initialize the chat with the first bot message when the component mounts
   useEffect(() => {
     if (messages.length === 0) {
       const initialBotMessage = GUEST_CONVERSATION_FLOW.INITIAL;
@@ -150,6 +173,7 @@ export default function PublicChatbotPage() {
     }
   }, []);
 
+  // Handler for text input form submission
   const handleSendMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     if (inputMessage.trim() === '') return;
@@ -184,6 +208,7 @@ export default function PublicChatbotPage() {
     setShowGuestTextInput(false);
   };
 
+  // Handler for when a user clicks on an option button
   const handleGuestOptionClick = (option: string) => {
     const userMessage: ChatMessage = {
       id: messages.length + 1,
@@ -193,6 +218,7 @@ export default function PublicChatbotPage() {
     };
     setMessages((prevMessages) => [...prevMessages, userMessage]);
 
+    // Handle the "Otro" option separately to switch to text input mode
     if (option === "🤷 Otro") {
       setShowGuestTextInput(true);
       setMessages((prevMessages) => [
@@ -209,6 +235,7 @@ export default function PublicChatbotPage() {
     let nextBotMessage: { botMessage: string; options?: string[] } | null = null;
     let newGuestState = guestState;
 
+    // Use a switch statement to manage the flow based on the current state and user's choice
     switch (guestState) {
       case 'INITIAL':
         if (option === "📋 Conocer nuestros planes") {
@@ -267,6 +294,7 @@ export default function PublicChatbotPage() {
         newGuestState = 'INITIAL';
     }
 
+    // Add the next bot message and update the state
     if (nextBotMessage) {
       setMessages((prevMessages) => [
         ...prevMessages,
@@ -281,17 +309,19 @@ export default function PublicChatbotPage() {
     }
   };
 
+// Public Chatbot page desgn
 return (
   <div className="flex flex-col h-full w-full bg-white text-gray-800">
-    {/* This div is the messages container. It uses flex-1 to grow and fill available space. */}
+    {/* Messages container, configured to be scrollable and growable. */}
     <div className="flex-1 overflow-y-auto p-4 bg-white border border-gray-200 rounded-md mb-4 space-y-3">
       {messages.map((msg) => (
         <ChatMessage key={msg.id} msg={msg} />
       ))}
+      {/* Invisible div as a scroll anchor. */}
       <div ref={messagesEndRef} />
     </div>
 
-    {/* This div is for the options/input. It uses flex-shrink-0 to maintain its size and stay at the bottom. */}
+    {/* Input or option buttons, conditionally rendered. */}
     <div className="flex-shrink-0">
       {showGuestTextInput ? (
         <form onSubmit={handleSendMessage} className="flex space-x-3">

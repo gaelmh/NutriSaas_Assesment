@@ -1,7 +1,13 @@
+// Client-side component, necessary for handling private chatbot interactions
 'use client';
 
+// Import React hooks for state management and side effects
 import { useState } from 'react';
+
+// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation } from '@apollo/client';
+
+// Import Next.js's `Link` component for client-side navigation
 import Link from 'next/link';
 
 // Define the GraphQL mutation for requesting a password reset
@@ -11,15 +17,16 @@ const REQUEST_PASSWORD_RESET_MUTATION = gql`
   }
 `;
 
+// The main component for the Forgot Password page
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
-  const [displayMessage, setDisplayMessage] = useState<string | null>(null);
-  const [isError, setIsError] = useState(false);
+  const [email, setEmail] = useState(''); // State to store the email input value
+  const [displayMessage, setDisplayMessage] = useState<string | null>(null); // State to store a message to display to the user
+  const [isError, setIsError] = useState(false); // State to track if the displayed message is an error
 
-  // useMutation hook to execute the requestPasswordReset mutation
+  // Hook to execute the requestPasswordReset mutation
   const [requestReset, { loading }] = useMutation(REQUEST_PASSWORD_RESET_MUTATION, {
     onCompleted: (data) => {
-      setDisplayMessage(data.requestPasswordReset); // Display the message returned by the server
+      setDisplayMessage(data.requestPasswordReset);
       setIsError(false);
     },
     onError: (err) => {
@@ -29,6 +36,7 @@ export default function ForgotPasswordPage() {
     },
   });
 
+  // Function to handle the form submission
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setDisplayMessage('Sending reset link...');
@@ -66,6 +74,7 @@ export default function ForgotPasswordPage() {
           </button>
         </form>
 
+        {/* Conditionally display the message to the user. */}
         {displayMessage && (
           <p className={`mt-4 text-center ${isError ? 'text-red-600' : 'text-gray-600'}`}>
             {displayMessage}

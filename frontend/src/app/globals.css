@@ -1,10 +1,13 @@
+/* Import Tailwind CSS, which provides utility classes for styling */
 @import "tailwindcss";
 
+/* Define CSS variables for color scheme, used throughout the application. */
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
+/* Custom theme rule. It defines a theme named 'inline'. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -12,6 +15,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Define styles for dark mode using a media query. */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -19,6 +23,7 @@
   }
 }
 
+/* Basic body styling, applying the defined CSS variables. */
 body {
   background: var(--background);
   color: var(--foreground);

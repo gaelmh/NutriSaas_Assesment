@@ -1,9 +1,15 @@
+// Client-side component, necessary for handling private chatbot interactions
 'use client';
 
+// Import React hooks for state management and side effects
 import { useState, useEffect } from 'react';
+
+// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation } from '@apollo/client';
-import { useRouter, useSearchParams } from 'next/navigation'; // Import useSearchParams for URL parameters
+
+// Import Next.js's `Link` component for client-side navigation
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // Define the GraphQL mutation for resetting the password
 const RESET_PASSWORD_MUTATION = gql`
@@ -12,13 +18,14 @@ const RESET_PASSWORD_MUTATION = gql`
   }
 `;
 
+// The main component for the Reset Password page
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [resetToken, setResetToken] = useState<string | null>(null);
-  const [displayMessage, setDisplayMessage] = useState<string | null>(null);
+  const searchParams = useSearchParams(); // State for the new password input field
+  const [newPassword, setNewPassword] = useState(''); // State for the confirm password input field
+  const [confirmPassword, setConfirmPassword] = useState(''); // State to store the reset token from the URL
+  const [resetToken, setResetToken] = useState<string | null>(null); // State for displaying messages to the user
+  const [displayMessage, setDisplayMessage] = useState<string | null>(null); // State to track if the displayed message is an error
   const [isError, setIsError] = useState(false);
 
   // Extract the token from the URL query parameters on component mount
@@ -32,12 +39,11 @@ export default function ResetPasswordPage() {
     }
   }, [searchParams]);
 
-  // useMutation hook for resetting the password
+  // Hook for executing the password reset
   const [resetPasswordMutation, { loading }] = useMutation(RESET_PASSWORD_MUTATION, {
     onCompleted: (data) => {
-      setDisplayMessage(data.resetPassword); // Display the message returned by the server
+      setDisplayMessage(data.resetPassword); 
       setIsError(false);
-      // Optional: Redirect to login page after a short delay on success
       setTimeout(() => {
         router.push('/login');
       }, 3000);
@@ -49,15 +55,18 @@ export default function ResetPasswordPage() {
     },
   });
 
+  // Function to handle the form submission
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    // Perform client-side validation
     if (!resetToken) {
       setDisplayMessage('Cannot reset password: Token is missing.');
       setIsError(true);
       return;
     }
 
+    // Client-side password validation using a regex
     if (newPassword !== confirmPassword) {
       setDisplayMessage('Error: Passwords do not match.');
       setIsError(true);
@@ -86,7 +95,8 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
         <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Reset Password</h2>
-
+        
+        {/* Conditionally render the form or an error message if the token is missing. */}
         {!resetToken && displayMessage ? (
           <p className={`mt-4 text-center ${isError ? 'text-red-600' : 'text-gray-600'}`}>
             {displayMessage}
@@ -129,7 +139,8 @@ export default function ResetPasswordPage() {
           </form>
         )}
 
-        {displayMessage && resetToken && ( // Only show message if token exists (form is visible)
+        {/* Display messages only if a token is present, to avoid showing duplicate messages initially. */}
+        {displayMessage && resetToken && (
           <p className={`mt-4 text-center ${isError ? 'text-red-600' : 'text-gray-600'}`}>
             {displayMessage}
           </p>

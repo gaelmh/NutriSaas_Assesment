@@ -1,5 +1,7 @@
+// Client-side component, necessary for handling private chatbot interactions
 'use client';
 
+// Import necessary React and Next.js components and hooks
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -12,39 +14,37 @@ const GET_HELLO_MESSAGE = gql`
   }
 `;
 
-// Define the new GraphQL mutation for logging out
+// Define a GraphQL mutation for logging out a user
 const LOGOUT_MUTATION = gql`
   mutation Logout {
     logout
   }
 `;
 
+// Main component for the home page
 export default function HomePage() {
   const router = useRouter();
   const { loading, error, data } = useQuery(GET_HELLO_MESSAGE);
 
-  // Use the new logout mutation hook
   const [logoutUser] = useMutation(LOGOUT_MUTATION, {
     onCompleted: () => {
-      // Redirect to the main chatbot page only after the logout is successful
       router.push('/chatbot');
     },
     onError: (error) => {
       console.error("Error during logout:", error.message);
-      // Redirect anyway to try and clear the state, even if the logout mutation failed
       router.push('/chatbot');
     }
   });
 
-  // Function to handle "Continuar como Invitado" click
+  // Handler function for the "Continue as Guest" button
   const handleContinueAsGuest = async () => {
-    // Call the logout mutation to clear any existing httpOnly cookie on the server
     await logoutUser();
   };
 
   if (loading) return <p className="text-center text-lg text-gray-700">Cargando...</p>;
   if (error) return <p className="text-center text-lg text-red-600">Error: {error.message}</p>;
 
+  // Main page design
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <h1 className="text-5xl font-extrabold text-gray-900 mb-8">¡Bienvenido a NutriSaas!</h1>

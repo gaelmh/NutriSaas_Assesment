@@ -1,8 +1,11 @@
+// Import necessary modules for the Apollo Server and Express
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import express from 'express';
 import http from 'http';
+
+// Import local database functions and other utilities
 import pool, { getUserInfo, saveInitialUserInfo } from './db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -12,18 +15,17 @@ import crypto from 'crypto';
 import 'dotenv/config';
 import cookieParser from 'cookie-parser';
 
-// --- DEBUGGING: Log JWT_SECRET at server start ---
-// console.log('Server Start: process.env.JWT_SECRET (from top of file):', process.env.JWT_SECRET);
-// --- END DEBUGGING ---
-
+// Define the GraphQL schema using the GraphQL Schema Definition Language
 const typeDefs = `#graphql
-  type User {
+// Define the User type with basic information  
+type User {
     id: ID!
     username: String!
     email: String!
     fullname: String!
   }
 
+  // Define the UserInfo type for detailed user profile
   type UserInfo {
     initialInfoCollected: Boolean!
     height_cm: Int
@@ -33,11 +35,13 @@ const typeDefs = `#graphql
     age: Int # Added age field
   }
 
+  // Define the payload for authentication mutations
   type AuthPayload {
     token: String!
     user: User!
   }
 
+  // Define the Query type, which is for fetching data
   type Query {
     hello: String
     testMessage: TestMessage
@@ -45,6 +49,7 @@ const typeDefs = `#graphql
     userInfo(userId: String!): UserInfo
   }
 
+  // Define the Mutation type, which is for modifying data
   type Mutation {
     signup(username: String!, password: String!, email: String!, fullname: String!): AuthPayload
     login(username: String!, password: String!): AuthPayload
@@ -72,23 +77,29 @@ const typeDefs = `#graphql
     adminChatbot(message: String!): ChatResponse # New admin chatbot mutation
   }
 
+  // Define a simple TestMessage type
   type TestMessage {
     id: ID!
     message: String
   }
 
+   // Define the response type for chatbot interactions
   type ChatResponse {
     response: String!
   }
 `;
 
+// Define resolvers that match the schema, providing logic for each field
 const resolvers = {
   Query: {
+    // Query to test server's health (can be removed)
     hello: () => 'Hello, world!',
     testMessage: async (parent, args, { db }) => {
       const { rows } = await db.query('SELECT * FROM test_table WHERE id = 1');
       return rows[0];
     },
+
+    // Resolver to get the current authenticated user's information
     me: async (parent, args, { db, user }) => {
       if (!user) {
         throw new Error('Not authenticated');
@@ -96,6 +107,8 @@ const resolvers = {
       const { rows } = await db.query('SELECT id, username, email, "fullname" FROM users WHERE id = $1', [user.id]);
       return rows[0];
     },
+
+    // Resolver to get detailed user info, with authorization check
     userInfo: async (parent, { userId }, { user }) => {
       if (!user || String(user.id) !== userId) {
         throw new Error('Unauthorized access to user information.');
@@ -111,6 +124,7 @@ const resolvers = {
   },
 
   Mutation: {
+    // Resolver for user signup
     signup: async (parent, { username, password, email, fullname }, { db, res }) => {
       if (!email || !fullname){
         throw new Error('Email and full name required.')
@@ -129,8 +143,8 @@ const resolvers = {
       );
       const user = rows[0];
 
+      // Create a JWT token and set it as an httpOnly cookie
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
       res.cookie('authToken', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -143,6 +157,7 @@ const resolvers = {
       };
     },
 
+    // Resolver for user login
     login: async (parent, { username, password }, { db, res, req }) => {
       const { rows } = await db.query('SELECT id, username, password FROM users WHERE username = $1', [username]);
       const user = rows[0];
@@ -157,8 +172,8 @@ const resolvers = {
         throw new Error('Invalid password');
       }
 
+      // Create and set a new token upon successful login
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
       res.cookie('authToken', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -171,7 +186,7 @@ const resolvers = {
       };
     },
 
-    // New logout mutation to clear the httpOnly cookie from the server
+    // Resolver for user logout, clearing the cookie
     logout: async (parent, args, { res }) => {
       res.clearCookie('authToken', {
         httpOnly: true,
@@ -181,6 +196,7 @@ const resolvers = {
       return 'Logged out successfully.';
     },
 
+    // Resolver for the public chatbot interaction
     chatbot: async (parent, { message }) => {
       try {
         const response = await fetch('http://127.0.0.1:8000/chatbot' , {
@@ -198,7 +214,7 @@ const resolvers = {
       }
     },
 
-    // New resolver for admin chatbot
+    // Resolver for the admin chatbot, with an authorization check
     adminChatbot: async (parent, { message }, { user, db }) => {
       if (!user) {
         throw new Error('Not authenticated.');
@@ -221,6 +237,7 @@ const resolvers = {
       return data;
     },
 
+    // Resolver to handle a password reset request
     requestPasswordReset: async (parent, { email }, { db }) => {
       const { rows } = await db.query('SELECT id FROM users WHERE email = $1', [email]);
       const user = rows[0];
@@ -243,6 +260,7 @@ const resolvers = {
       return 'If an account with that email exists, a password reset link has been sent.';
     },
 
+    // Resolver to reset a password using a token
     resetPassword: async (parent, { token, newPassword }, { db }) => {
       const { rows } = await db.query(
         'SELECT id FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW()',
@@ -269,6 +287,7 @@ const resolvers = {
       return 'Password has been successfully reset.';
     },
 
+    // Resolver to save a new user's initial information
     saveInitialInfo: async (parent, { userId, username, height_cm, weight_kg, allergies, sex, age }, { user }) => {
       if (!user || String(user.id) !== userId) {
         throw new Error('Unauthorized attempt to save user information.');
@@ -282,11 +301,13 @@ const resolvers = {
       }
     },
 
+    // Resolver to update an existing user's information
     updateUserInfo: async (parent, { userId, height_cm, weight_kg, allergies, sex, age }, { user }) => {
       if (!user || String(user.id) !== userId) {
         throw new Error('Unauthorized attempt to update user information.');
       }
       try {
+        // This function reuses the saveInitialUserInfo logic for updates
         const updatedInfo = await saveInitialUserInfo(userId, user.username, height_cm, weight_kg, allergies, sex, age);
         return updatedInfo;
       } catch (error) {
@@ -297,6 +318,7 @@ const resolvers = {
   },
 };
 
+// Main function to start the server
 async function startServer() {
   const app = express();
   const httpServer = http.createServer(app);
@@ -309,6 +331,7 @@ async function startServer() {
 
   await server.start();
 
+  // Middleware setup
   app.use(cors({
     origin: 'http://localhost:3000',
     credentials: true,
@@ -316,23 +339,28 @@ async function startServer() {
 
   app.use(cookieParser());
 
+  // Rate limiting for login attempts
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 5,
     message: 'Too many login attempts, please try again later after 15 minutes.',
   });
 
+  // Apply Express middleware for Apollo Server
   app.use('/graphql', express.json(), (req, res, next) => {
+    // Apply rate limit only to the login mutation
     if (req.body.query && req.body.query.includes('mutation Login')) {
       return loginLimiter(req, res, next);
     }
     return next();
   }, expressMiddleware(server, {
+    // Context function to handle authentication and provide database access
     context: async ({ req, res }) => {
       const token = req.cookies?.authToken;
       let user = null;
       if (token) {
         try {
+          // Verify the JWT token
           const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
           user = { id: decodedToken.userId };
         } catch (err) {

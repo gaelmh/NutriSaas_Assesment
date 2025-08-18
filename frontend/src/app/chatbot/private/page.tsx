@@ -1,10 +1,13 @@
+// Client-side component, necessary for handling private chatbot interactions
 'use client';
 
+// Import React hooks for state management and side effects
 import { useState, useRef, useEffect, useCallback } from 'react';
+
+// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation, useQuery } from '@apollo/client';
 
-// --- GraphQL Definitions ---
-
+// Query to fetch initial user information, checking if it has been collected
 const GET_USER_INFO_QUERY = gql`
   query GetUserInfo($userId: String!) {
     userInfo(userId: $userId) {
@@ -18,6 +21,7 @@ const GET_USER_INFO_QUERY = gql`
   }
 `;
 
+// Mutation to save the initial information of a new user
 const SAVE_INITIAL_INFO_MUTATION = gql`
   mutation SaveInitialInfo(
     $userId: String!,
@@ -42,6 +46,7 @@ const SAVE_INITIAL_INFO_MUTATION = gql`
   }
 `;
 
+// Define the GraphQL mutation to send a message admin chatbot
 const CHATBOT_MUTATION = gql`
   mutation Chatbot($message: String!) {
     chatbot(message: $message) {
@@ -50,7 +55,7 @@ const CHATBOT_MUTATION = gql`
   }
 `;
 
-// --- Chat Message Interface ---
+// Define the interface for a chat message object
 interface ChatMessage {
   id: number;
   text: string;
@@ -59,7 +64,7 @@ interface ChatMessage {
   isUserOption?: boolean;
 }
 
-// --- Chat Message Component ---
+// React component for displaying a single chat message
 const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   <div
     key={msg.id}
@@ -79,7 +84,7 @@ const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   </div>
 );
 
-// --- Private Chatbot Page Component ---
+// Private Chatbot Page Component
 interface PrivateChatbotPageProps {
   userId: string;
   username: string;
@@ -89,12 +94,15 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
   const ACTUAL_USER_ID = userId;
   const ACTUAL_USERNAME = username;
 
-  // --- State Management ---
+  // State Management
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // State to track if the user's initial info has been collected
   const [initialInfoCollected, setInitialInfoCollected] = useState<boolean>(false);
+
+  // State to manage the step of the information collection flow
   const [infoCollectionStep, setInfoCollectionStep] = useState<string>('LOADING_USER_INFO');
 
   // Temporary state to hold collected info before final database save
@@ -105,7 +113,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
   const [tempAllergies, setTempAllergies] = useState<string[]>([]);
 
 
-  // --- GraphQL Hooks ---
+  // Query to check if the user's initial info has been collected
   const { loading: queryLoading } = useQuery(GET_USER_INFO_QUERY, {
     variables: { userId: ACTUAL_USER_ID },
     skip: !ACTUAL_USER_ID,
@@ -123,12 +131,12 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     },
   });
 
+  // Mutation to save the collected initial information
   const [saveInitialInfoMutation, { loading: saveLoading }] = useMutation(SAVE_INITIAL_INFO_MUTATION, {
     onCompleted: (mutationData) => {
       if (mutationData.saveInitialInfo?.initialInfoCollected) {
         setInitialInfoCollected(true);
         setInfoCollectionStep('DONE');
-        // The welcome message is now handled by a dedicated useEffect
         sendBotMessage("Gracias, tu información ha sido guardada correctamente.");
         sendBotMessage(`¿En qué puedo ayudarte hoy, ${ACTUAL_USERNAME}?`);
       }
@@ -140,9 +148,10 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     },
   });
 
+  // Mutation for general chatbot messages
   const [sendChatMessage, { loading: chatLoading }] = useMutation(CHATBOT_MUTATION, {
     onCompleted: (data) => {
-      // Assuming a simple hardcoded response for now
+      // Temporary defaul bot response and a follow-up question (MODIFY TO TAKE NLP ANSWER)
       sendBotMessage("Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.");
       sendBotMessage("¿Hay algo más en lo que te pueda ayudar?");
       setInputMessage('');
@@ -154,7 +163,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     },
   });
 
-  // --- Helper Functions ---
+  // Memoized function to add a bot message to the chat history
   const sendBotMessage = useCallback((text: string, options?: string[]) => {
     setMessages((prevMessages) => [
       ...prevMessages,
@@ -167,6 +176,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     ]);
   }, []);
 
+  // Memoized function to add a user message to the chat history
   const sendUserMessage = useCallback((text: string) => {
     setMessages((prevMessages) => [
       ...prevMessages,
@@ -178,20 +188,19 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     ]);
   }, []);
 
-
-  // --- Effects ---
+  // Auto-scroll to the bottom of the message list whenever messages are updated
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // New useEffect for the initial greeting message for existing users
+  // Handle the initial greeting message for users with saved info
   useEffect(() => {
     if (infoCollectionStep === 'DONE' && messages.length === 0) {
       sendBotMessage("¡Hola de nuevo! ¿En qué te puedo ayudar hoy?");
     }
   }, [infoCollectionStep, messages.length, sendBotMessage]);
 
-  // Existing useEffect for the information collection flow for new users
+  /// Handle the initial greeting and prompt for new users
   useEffect(() => {
     if (infoCollectionStep === 'INTRO_PERSONAL_INFO' && messages.length === 0) {
       sendBotMessage("Para personalizar tu experiencia, necesito conocerte mejor.");
@@ -209,6 +218,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
 
     const numericValue = parseInt(responseText);
 
+    // This switch statement controls the conversation flow based on the `infoCollectionStep` state
     switch (infoCollectionStep) {
       case 'INTRO_SEX':
         if (responseText === "♂️ Masculino" || responseText === "♀️ Femenino") {
@@ -361,6 +371,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
         }
         break;
 
+      // If info is already collected, send the message to the chatbot
       case 'DONE':
         await sendChatMessage({ variables: { message: responseText } });
         break;
@@ -373,6 +384,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     }
   };
 
+  // Handle form submission for text input
   const handleFormSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (inputMessage.trim() === '') return;
@@ -380,13 +392,14 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     setInputMessage('');
   };
 
+  // Handle button click for option-based responses
   const handleButtonClick = (option: string) => {
     handleUserResponse(option);
   };
 
+  // Logic to determine whether to show the text input or the options
   const lastBotMessage = messages[messages.length - 1];
   const lastBotHasOptions = lastBotMessage?.sender === 'bot' && lastBotMessage.options && lastBotMessage.options.length > 0;
-
   const showTextInput = (
     infoCollectionStep === 'INTRO_AGE' ||
     infoCollectionStep === 'INTRO_HEIGHT' ||
@@ -396,6 +409,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     infoCollectionStep === 'DONE'
   );
 
+  // Show a loading state while fetching user info
   if (queryLoading || infoCollectionStep === 'LOADING_USER_INFO') {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 text-lg">
@@ -404,15 +418,19 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     );
   }
 
+// Private Chatbot page desgn
   return (
     <>
+      {/* Messages container, configured to be scrollable and growable. */}
       <div className="flex-1 overflow-y-auto p-4 border border-gray-200 rounded-md mb-4 space-y-3">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} msg={msg} />
         ))}
+        {/* Invisible div as a scroll anchor. */}
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input or option buttons, conditionally rendered */}
       {showTextInput && !lastBotHasOptions ? (
         <form onSubmit={handleFormSubmit} className="flex space-x-3">
           <input

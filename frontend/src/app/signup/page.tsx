@@ -1,7 +1,13 @@
-'use client'; // This directive is necessary for client-side interactivity
+// Client-side component, necessary for handling private chatbot interactions
+'use client';
 
+// Import React hooks for state management and side effects
 import { useState } from 'react';
+
+// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation } from '@apollo/client';
+
+// Import Next.js's `Link` component for client-side navigation
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -20,33 +26,27 @@ const SIGNUP_MUTATION = gql`
   }
 `;
 
+// The main component for the Signup page
 export default function SignupPage() {
-  const router = useRouter(); // Initialize useRouter
-  
-  // State to manage form input values
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [fullname, setfullname] = useState('');
+  const router = useRouter();
+  const [username, setUsername] = useState(''); // State to manage form input values
+  const [password, setPassword] = useState(''); // State to manage form input values
+  const [email, setEmail] = useState('');       // State to manage form input values
+  const [fullname, setfullname] = useState(''); // State to manage form input values
 
-  // useMutation hook to execute the signup mutation
+  // Hook to execute the signup mutation
   const [signupUser, { data, loading, error }] = useMutation(SIGNUP_MUTATION);
 
-  // Handle form submission
+  // Function to handle the form submission
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
     try {      
-      // Call the signup mutation with the current username and password
       await signupUser({
         variables: { username, password, email, fullname },
       });
-
-      // Redirect immediately
       alert('Signup successful! Redirecting to chatbot...');
       router.push('/chatbot');
     } catch (err: any) {
-      // Display a user-friendly error message
       alert(`Signup failed: ${err.message}`);
       console.error('Signup error:', err);
     }
@@ -119,7 +119,7 @@ export default function SignupPage() {
           </button>
         </form>
 
-        {/* Display loading, error, or success messages */}
+        {/* Conditionally display messages based on the mutation state. */}
         {error && (
           <p className="mt-4 text-center text-red-600">Error: {error.message}</p>
         )}

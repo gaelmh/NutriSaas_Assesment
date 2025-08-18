@@ -1,8 +1,13 @@
-'use client';
+// Client-side component, necessary for handling private chatbot interactions
+'use client'; 
 
+// Import React hooks for state management and side effects
 import { useState, useRef, useEffect } from 'react';
+
+// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation } from '@apollo/client';
 
+// Define the GraphQL mutation to send a message admin chatbot
 const ADMIN_CHATBOT_MUTATION = gql`
   mutation AdminChatbot($message: String!) {
     adminChatbot(message: $message) {
@@ -11,12 +16,14 @@ const ADMIN_CHATBOT_MUTATION = gql`
   }
 `;
 
+// Define the interface for a chat message object
 interface ChatMessage {
   id: number;
   text: string;
   sender: 'user' | 'bot';
 }
 
+// React component for displaying a single chat message
 const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   <div
     key={msg.id}
@@ -36,12 +43,15 @@ const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   </div>
 );
 
+// Main component for the Admin Chatbot Page
 export default function AdminChatbotPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]); // State to store the chat messages
+  const [inputMessage, setInputMessage] = useState(''); // State to manage the text input field's value
+  const messagesEndRef = useRef<HTMLDivElement>(null); // Hook to create a reference to the end of the message list
 
+  // Hook to handle the `ADMIN_CHATBOT_MUTATION`
   const [sendAdminMessage, { loading }] = useMutation(ADMIN_CHATBOT_MUTATION, {
+    // Callback function that runs when the mutation is successful
     onCompleted: (data) => {
       setMessages((prevMessages) => [
         ...prevMessages,
@@ -58,6 +68,7 @@ export default function AdminChatbotPage() {
       ]);
       setInputMessage('');
     },
+     // Callback function for when the mutation fails
     onError: (error) => {
       console.error('Admin Chatbot API error:', error);
       setMessages((prevMessages) => [
@@ -72,6 +83,7 @@ export default function AdminChatbotPage() {
     },
   });
 
+  // Display the initial greeting message when the component mounts
   useEffect(() => {
     setMessages([
       {
@@ -82,10 +94,12 @@ export default function AdminChatbotPage() {
     ]);
   }, []);
 
+  // Scroll to the bottom of the chat window whenever the `messages` state changes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Handle form submission
   const handleFormSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (inputMessage.trim() === '') return;
@@ -103,18 +117,19 @@ export default function AdminChatbotPage() {
     setInputMessage('');
   };
 
+  // Admin Chatbot page desgn
   return (
     <div className="flex flex-col h-full w-full bg-white text-gray-800">
-      {/* The flex-1 class makes this div grow to fill available space */}
-      {/* overflow-y-auto enables vertical scrolling */}
+      {/* Messages container, configured to be scrollable and growable. */}
       <div className="flex-1 overflow-y-auto p-4 border border-gray-200 rounded-md mb-4 space-y-3">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} msg={msg} />
         ))}
+        {/* Invisible div to serve as the scroll anchor. */}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* The flex-shrink-0 class ensures this div does not shrink and stays at the bottom */}
+      {/* Input form, configured to shrink and stay at the bottom. */}
       <div className="flex-shrink-0">
         <form onSubmit={handleFormSubmit} className="flex space-x-3">
           <input

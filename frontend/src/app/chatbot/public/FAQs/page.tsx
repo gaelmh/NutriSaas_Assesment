@@ -1,8 +1,8 @@
+// Client-side component, necessary for handling private chatbot interactions
+
 'use client';
 
-import Link from 'next/link';
-
-// Definimos las preguntas y respuestas para la página de FAQ
+// Array of objects, containing a question and its corresponding answer.
 const faqItems = [
   {
     question: "¿Qué es NutriSaas?",
@@ -31,6 +31,7 @@ const faqItems = [
   },
 ];
 
+// Main component for the FAQs page
 export default function FAQsPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
@@ -39,6 +40,7 @@ export default function FAQsPage() {
           Preguntas Frecuentes
         </h2>
         <div className="space-y-6">
+          {/* Map over the faqItems array to render each question and answer. */}
           {faqItems.map((item, index) => (
             <div key={index}>
               <h3 className="text-xl font-semibold text-gray-800">

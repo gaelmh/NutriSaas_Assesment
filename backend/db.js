@@ -1,6 +1,8 @@
+// Import libraries
 import pg from 'pg';
 import 'dotenv/config';
 
+// Create a new PostgreSQL connection pool
 const pool = new pg.Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -9,7 +11,12 @@ const pool = new pg.Pool({
   port: process.env.DB_PORT,
 });
 
-// Function to get user information by user_id
+/**
+ * Retrieves a user's detailed information from the 'user_information' table by their user ID.
+ * @param {string} userId - The ID of the user to fetch information for.
+ * @returns {Promise<Object|undefined>} A promise that resolves with the user's information object,
+ * or undefined if no user is found.
+ */
 async function getUserInfo(userId) {
   try {
     const result = await pool.query(
@@ -29,13 +36,22 @@ async function getUserInfo(userId) {
     }
     return undefined;
   } catch (error) {
-    // Detailed logging for getUserInfo errors
     console.error('DB Error in getUserInfo:', error.message, error.stack);
     throw new Error('Could not fetch user information from DB.'); // Re-throw to propagate to resolver
   }
 }
 
-// Function to save initial user information (insert or update if exists)
+/**
+ * Saves initial user information, either by inserting a new record or updating an existing one.
+ * @param {string} userId - The ID of the user.
+ * @param {string} username - The user's username.
+ * @param {number} height_cm - The user's height in centimeters.
+ * @param {number} weight_kg - The user's weight in kilograms.
+ * @param {string[]} allergies - An array of the user's allergies.
+ * @param {string} sex - The user's sex.
+ * @param {number} age - The user's age.
+ * @returns {Promise<Object>} A promise that resolves with the saved user information.
+ */
 async function saveInitialUserInfo(userId, username, height_cm, weight_kg, allergies, sex, age) {
   try {
     const existingInfo = await pool.query(
@@ -73,9 +89,7 @@ async function saveInitialUserInfo(userId, username, height_cm, weight_kg, aller
     return savedInfo;
 
   } catch (error) {
-    // Detailed logging for saveInitialUserInfo errors
     console.error('DB Error in saveInitialUserInfo:', error.message, error.stack);
-    // Also log the query parameters to see if data types are an issue
     console.error('Attempted save parameters:', { userId, username, height_cm, weight_kg, allergies, sex, age });
     throw new Error('Could not save initial user information to DB.'); // Re-throw to propagate
   }
