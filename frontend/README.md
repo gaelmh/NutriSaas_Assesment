@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## NutriSaas: Technical Assessment Frontend
 
-## Getting Started
+### Description
+This frontend application is the user-facing part of the NutriSaas platform. Built with Next.js, it provides an interactive interface for a nutritional chatbot. The application supports multiple user flows, including public access for guests, a personalized experience for logged-in users, and a dedicated interface for an administrative user.
 
-First, run the development server:
+***
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Tech Stack
+* **Next.js:** A React framework for building server-rendered and static web applications. It handles routing and provides a performant foundation.
+* **React:** A JavaScript library for building user interfaces.
+* **Tailwind CSS:** A utility-first CSS framework for rapid and customizable styling.
+* **Apollo Client:** A comprehensive GraphQL client for managing data and state in the application, connecting to the backend's GraphQL API.
+* **Geist Font Family:** A Vercel-developed font used for a clean and modern aesthetic.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+***
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Prerequisites
+To run the frontend, you need the following installed:
+* Node.js (v18 or higher)
+* npm or yarn
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+***
 
-## Learn More
+### Setup and Installation
+Follow these steps to set up and run the frontend service:
+1.  **Frontend Setup**
+    * Navigate to the `frontend` directory:
+        ```bash
+        cd frontend
+        ```
+    * Install dependencies:
+        ```bash
+        npm install
+        ```
+    * Start the Next.js development server:
+        ```bash
+        npm run dev
+        ```
+    The frontend will be available at `http://localhost:3000`.
 
-To learn more about Next.js, take a look at the following resources:
+***
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Usage
+*Open your browser and navigate to `http://localhost:3000`.
+*The homepage provides options to log in, sign up, or proceed as a guest.
+* The chatbot's functionality adapts based on the user's authentication status:
+    * Public Chatbot: Accessible to guests, providing general information about NutriSaas and its plans.
+    * Private Chatbot: For logged-in users, it offers a personalized experience and collects initial user data like sex, age, height, weight, and allergies.
+    * Admin Chatbot: A special interface for the `AdminUser` account with unique administrative capabilities.
+* All API calls to the backend's GraphQL endpoint are handled by Apollo Client, which is configured in `lib/apollo-client.ts` to include cookies for authentication.
