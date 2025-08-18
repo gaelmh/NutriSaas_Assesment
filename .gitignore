@@ -24,6 +24,9 @@ nutrisaas_assessment.pdf
 
 # Python - Ignores Python cache files and the virtual environment directory
 /python_nlp/__pycache__
+/python_nlp/data/dev.spacy
+/python_nlp/data/train.spacy
+/python_nlp/output
 /python_nlp/venv
 
 # Next.js - Ignores the Next.js build output and the export directory
