@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { gql, useMutation } from '@apollo/client';
 
-// Define the GraphQL chatbot mutation
 const ADMIN_CHATBOT_MUTATION = gql`
   mutation AdminChatbot($message: String!) {
     adminChatbot(message: $message) {
@@ -44,7 +43,6 @@ export default function AdminChatbotPage() {
 
   const [sendAdminMessage, { loading }] = useMutation(ADMIN_CHATBOT_MUTATION, {
     onCompleted: (data) => {
-      // Assuming a simple hardcoded response for now
       setMessages((prevMessages) => [
         ...prevMessages,
         {
@@ -74,9 +72,6 @@ export default function AdminChatbotPage() {
     },
   });
 
-
-
-  // Use an empty dependency array to ensure this effect runs only once on mount.
   useEffect(() => {
     setMessages([
       {
@@ -110,6 +105,8 @@ export default function AdminChatbotPage() {
 
   return (
     <div className="flex flex-col h-full w-full bg-white text-gray-800">
+      {/* The flex-1 class makes this div grow to fill available space */}
+      {/* overflow-y-auto enables vertical scrolling */}
       <div className="flex-1 overflow-y-auto p-4 border border-gray-200 rounded-md mb-4 space-y-3">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} msg={msg} />
@@ -117,23 +114,26 @@ export default function AdminChatbotPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleFormSubmit} className="flex space-x-3">
-        <input
-          type="text"
-          className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900"
-          placeholder="Escribe tu mensaje para el admin chatbot..."
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          disabled={loading}
-        />
-        <button
-          type="submit"
-          className="px-6 py-2 bg-purple-600 text-white rounded-md shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-          disabled={loading || inputMessage.trim() === ''}
-        >
-          {loading ? 'Enviando...' : 'Enviar'}
-        </button>
-      </form>
+      {/* The flex-shrink-0 class ensures this div does not shrink and stays at the bottom */}
+      <div className="flex-shrink-0">
+        <form onSubmit={handleFormSubmit} className="flex space-x-3">
+          <input
+            type="text"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+            placeholder="Escribe tu mensaje para el admin chatbot..."
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            className="px-6 py-2 bg-purple-600 text-white rounded-md shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+            disabled={loading || inputMessage.trim() === ''}
+          >
+            {loading ? 'Enviando...' : 'Enviar'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

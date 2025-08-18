@@ -88,7 +88,7 @@ export default function ChatbotPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl flex flex-col h-[80vh] relative">
+      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl flex flex-col min-h-[80vh] overflow-hidden relative">
         <div className="absolute top-4 right-4">
           {isAuthenticated && user ? (
             <div className="flex items-center space-x-2">

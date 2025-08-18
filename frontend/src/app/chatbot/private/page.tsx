@@ -129,6 +129,8 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
         setInitialInfoCollected(true);
         setInfoCollectionStep('DONE');
         // The welcome message is now handled by a dedicated useEffect
+        sendBotMessage("Gracias, tu información ha sido guardada correctamente.");
+        sendBotMessage(`¿En qué puedo ayudarte hoy, ${ACTUAL_USERNAME}?`);
       }
     },
     onError: (error) => {
