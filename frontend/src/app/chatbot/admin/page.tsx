@@ -1,29 +1,28 @@
-// Client-side component, necessary for handling private chatbot interactions
+// Updated admin chatbot page.tsx with NLP integration
 'use client'; 
 
-// Import React hooks for state management and side effects
 import { useState, useRef, useEffect } from 'react';
-
-// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation } from '@apollo/client';
 
-// Define the GraphQL mutation to send a message admin chatbot
+// Updated GraphQL mutation to include new fields
 const ADMIN_CHATBOT_MUTATION = gql`
   mutation AdminChatbot($message: String!) {
     adminChatbot(message: $message) {
       response
+      intent
+      confidence
     }
   }
 `;
 
-// Define the interface for a chat message object
 interface ChatMessage {
   id: number;
   text: string;
   sender: 'user' | 'bot';
+  intent?: string;
+  confidence?: number;
 }
 
-// React component for displaying a single chat message
 const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   <div
     key={msg.id}
@@ -38,44 +37,46 @@ const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
           : 'bg-gray-200 text-gray-800'
       }`}
     >
-      {msg.text}
+      <div className="whitespace-pre-line">{msg.text}</div>
+      {/* Show intent and confidence for admin debugging */}
+      {msg.sender === 'bot' && msg.intent && (
+        <div className="text-xs mt-1 opacity-70">
+          Intent: {msg.intent} | Confidence: {(msg.confidence || 0 * 100).toFixed(1)}%
+        </div>
+      )}
     </div>
   </div>
 );
 
-// Main component for the Admin Chatbot Page
 export default function AdminChatbotPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]); // State to store the chat messages
-  const [inputMessage, setInputMessage] = useState(''); // State to manage the text input field's value
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Hook to create a reference to the end of the message list
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Hook to handle the `ADMIN_CHATBOT_MUTATION`
+  // Updated mutation handler to use actual NLP response
   const [sendAdminMessage, { loading }] = useMutation(ADMIN_CHATBOT_MUTATION, {
-    // Callback function that runs when the mutation is successful
     onCompleted: (data) => {
+      const nlpResponse = data.adminChatbot;
+      
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           id: prevMessages.length + 1,
-          text: "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.",
+          text: nlpResponse.response,
           sender: 'bot',
-        },
-        {
-          id: prevMessages.length + 2,
-          text: "¿Hay algo más en lo que te pueda ayudar?",
-          sender: 'bot',
+          intent: nlpResponse.intent,
+          confidence: nlpResponse.confidence,
         },
       ]);
       setInputMessage('');
     },
-     // Callback function for when the mutation fails
     onError: (error) => {
       console.error('Admin Chatbot API error:', error);
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           id: prevMessages.length + 1,
-          text: 'Oops! Something went wrong with the admin chatbot service. Please try again.',
+          text: 'Error: No se pudo conectar con el servicio de chat. Por favor, inténtalo de nuevo.',
           sender: 'bot',
         },
       ]);
@@ -83,23 +84,20 @@ export default function AdminChatbotPage() {
     },
   });
 
-  // Display the initial greeting message when the component mounts
   useEffect(() => {
     setMessages([
       {
         id: 1,
-        text: "¡Hola Admin! ¿En qué te puedo ayudar hoy?",
+        text: "¡Hola Admin! Soy tu asistente con capacidades especiales. Puedes preguntarme sobre estadísticas de usuarios o cualquier cosa relacionada con NutriSaas.",
         sender: 'bot',
       },
     ]);
   }, []);
 
-  // Scroll to the bottom of the chat window whenever the `messages` state changes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle form submission
   const handleFormSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (inputMessage.trim() === '') return;
@@ -117,19 +115,15 @@ export default function AdminChatbotPage() {
     setInputMessage('');
   };
 
-  // Admin Chatbot page desgn
   return (
     <div className="flex flex-col h-full w-full bg-white text-gray-800">
-      {/* Messages container, configured to be scrollable and growable. */}
       <div className="flex-1 overflow-y-auto p-4 border border-gray-200 rounded-md mb-4 space-y-3">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} msg={msg} />
         ))}
-        {/* Invisible div to serve as the scroll anchor. */}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input form, configured to shrink and stay at the bottom. */}
       <div className="flex-shrink-0">
         <form onSubmit={handleFormSubmit} className="flex space-x-3">
           <input

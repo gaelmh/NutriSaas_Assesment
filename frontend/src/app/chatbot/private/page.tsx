@@ -1,13 +1,9 @@
-// Client-side component, necessary for handling private chatbot interactions
+// Updated private chatbot page.tsx with NLP integration
 'use client';
 
-// Import React hooks for state management and side effects
 import { useState, useRef, useEffect, useCallback } from 'react';
-
-// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation, useQuery } from '@apollo/client';
 
-// Query to fetch initial user information, checking if it has been collected
 const GET_USER_INFO_QUERY = gql`
   query GetUserInfo($userId: String!) {
     userInfo(userId: $userId) {
@@ -21,7 +17,6 @@ const GET_USER_INFO_QUERY = gql`
   }
 `;
 
-// Mutation to save the initial information of a new user
 const SAVE_INITIAL_INFO_MUTATION = gql`
   mutation SaveInitialInfo(
     $userId: String!,
@@ -46,25 +41,27 @@ const SAVE_INITIAL_INFO_MUTATION = gql`
   }
 `;
 
-// Define the GraphQL mutation to send a message admin chatbot
+// Updated GraphQL mutation to include new fields
 const CHATBOT_MUTATION = gql`
   mutation Chatbot($message: String!) {
     chatbot(message: $message) {
       response
+      intent
+      confidence
     }
   }
 `;
 
-// Define the interface for a chat message object
 interface ChatMessage {
   id: number;
   text: string;
   sender: 'user' | 'bot';
   options?: string[];
   isUserOption?: boolean;
+  intent?: string;
+  confidence?: number;
 }
 
-// React component for displaying a single chat message
 const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   <div
     key={msg.id}
@@ -79,12 +76,17 @@ const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
           : 'bg-gray-200 text-gray-800'
       }`}
     >
-      {msg.text}
+      <div className="whitespace-pre-line">{msg.text}</div>
+      {/* Show intent and confidence for debugging (optional) */}
+      {msg.sender === 'bot' && msg.intent && msg.confidence !== undefined && (
+        <div className="text-xs mt-1 opacity-60">
+          {msg.intent} ({(msg.confidence * 100).toFixed(1)}%)
+        </div>
+      )}
     </div>
   </div>
 );
 
-// Private Chatbot Page Component
 interface PrivateChatbotPageProps {
   userId: string;
   username: string;
@@ -94,26 +96,19 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
   const ACTUAL_USER_ID = userId;
   const ACTUAL_USERNAME = username;
 
-  // State Management
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // State to track if the user's initial info has been collected
   const [initialInfoCollected, setInitialInfoCollected] = useState<boolean>(false);
-
-  // State to manage the step of the information collection flow
   const [infoCollectionStep, setInfoCollectionStep] = useState<string>('LOADING_USER_INFO');
 
-  // Temporary state to hold collected info before final database save
+  // Temporary state for info collection
   const [tempSex, setTempSex] = useState<string | null>(null);
   const [tempAge, setTempAge] = useState<number | null>(null);
   const [tempHeight, setTempHeight] = useState<number | null>(null);
   const [tempWeight, setTempWeight] = useState<number | null>(null);
   const [tempAllergies, setTempAllergies] = useState<string[]>([]);
 
-
-  // Query to check if the user's initial info has been collected
   const { loading: queryLoading } = useQuery(GET_USER_INFO_QUERY, {
     variables: { userId: ACTUAL_USER_ID },
     skip: !ACTUAL_USER_ID,
@@ -131,7 +126,6 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     },
   });
 
-  // Mutation to save the collected initial information
   const [saveInitialInfoMutation, { loading: saveLoading }] = useMutation(SAVE_INITIAL_INFO_MUTATION, {
     onCompleted: (mutationData) => {
       if (mutationData.saveInitialInfo?.initialInfoCollected) {
@@ -148,23 +142,24 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     },
   });
 
-  // Mutation for general chatbot messages
+  // Updated mutation for general chatbot messages using NLP
   const [sendChatMessage, { loading: chatLoading }] = useMutation(CHATBOT_MUTATION, {
     onCompleted: (data) => {
-      // Temporary defaul bot response and a follow-up question (MODIFY TO TAKE NLP ANSWER)
-      sendBotMessage("Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.");
-      sendBotMessage("¿Hay algo más en lo que te pueda ayudar?");
+      const nlpResponse = data.chatbot;
+      
+      // Use the actual NLP response instead of hardcoded message
+      sendBotMessage(nlpResponse.response, undefined, nlpResponse.intent, nlpResponse.confidence);
       setInputMessage('');
     },
     onError: (error) => {
       console.error('Chatbot API error:', error);
-      sendBotMessage('Oops! Something went wrong. Please try again.');
+      sendBotMessage('Lo siento, no pude procesar tu mensaje en este momento. Por favor, inténtalo de nuevo.');
       setInputMessage('');
     },
   });
 
-  // Memoized function to add a bot message to the chat history
-  const sendBotMessage = useCallback((text: string, options?: string[]) => {
+  // Updated sendBotMessage to include intent and confidence
+  const sendBotMessage = useCallback((text: string, options?: string[], intent?: string, confidence?: number) => {
     setMessages((prevMessages) => [
       ...prevMessages,
       {
@@ -172,11 +167,12 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
         text,
         sender: 'bot',
         options,
+        intent,
+        confidence,
       },
     ]);
   }, []);
 
-  // Memoized function to add a user message to the chat history
   const sendUserMessage = useCallback((text: string) => {
     setMessages((prevMessages) => [
       ...prevMessages,
@@ -188,19 +184,16 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     ]);
   }, []);
 
-  // Auto-scroll to the bottom of the message list whenever messages are updated
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle the initial greeting message for users with saved info
   useEffect(() => {
     if (infoCollectionStep === 'DONE' && messages.length === 0) {
-      sendBotMessage("¡Hola de nuevo! ¿En qué te puedo ayudar hoy?");
+      sendBotMessage(`¡Hola de nuevo, ${ACTUAL_USERNAME}! ¿En qué te puedo ayudar hoy?`);
     }
-  }, [infoCollectionStep, messages.length, sendBotMessage]);
+  }, [infoCollectionStep, messages.length, sendBotMessage, ACTUAL_USERNAME]);
 
-  /// Handle the initial greeting and prompt for new users
   useEffect(() => {
     if (infoCollectionStep === 'INTRO_PERSONAL_INFO' && messages.length === 0) {
       sendBotMessage("Para personalizar tu experiencia, necesito conocerte mejor.");
@@ -211,14 +204,11 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     }
   }, [infoCollectionStep, messages.length, sendBotMessage]);
 
-
-  // --- Main Logic for Handling User Responses ---
   const handleUserResponse = async (responseText: string) => {
     sendUserMessage(responseText);
 
     const numericValue = parseInt(responseText);
 
-    // This switch statement controls the conversation flow based on the `infoCollectionStep` state
     switch (infoCollectionStep) {
       case 'INTRO_SEX':
         if (responseText === "♂️ Masculino" || responseText === "♀️ Femenino") {
@@ -371,7 +361,7 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
         }
         break;
 
-      // If info is already collected, send the message to the chatbot
+      // Updated: Now uses actual NLP response
       case 'DONE':
         await sendChatMessage({ variables: { message: responseText } });
         break;
@@ -384,7 +374,6 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     }
   };
 
-  // Handle form submission for text input
   const handleFormSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (inputMessage.trim() === '') return;
@@ -392,12 +381,10 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     setInputMessage('');
   };
 
-  // Handle button click for option-based responses
   const handleButtonClick = (option: string) => {
     handleUserResponse(option);
   };
 
-  // Logic to determine whether to show the text input or the options
   const lastBotMessage = messages[messages.length - 1];
   const lastBotHasOptions = lastBotMessage?.sender === 'bot' && lastBotMessage.options && lastBotMessage.options.length > 0;
   const showTextInput = (
@@ -409,7 +396,6 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     infoCollectionStep === 'DONE'
   );
 
-  // Show a loading state while fetching user info
   if (queryLoading || infoCollectionStep === 'LOADING_USER_INFO') {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 text-lg">
@@ -418,19 +404,15 @@ export default function PrivateChatbotPage({ userId, username }: PrivateChatbotP
     );
   }
 
-// Private Chatbot page desgn
   return (
     <>
-      {/* Messages container, configured to be scrollable and growable. */}
       <div className="flex-1 overflow-y-auto p-4 border border-gray-200 rounded-md mb-4 space-y-3">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} msg={msg} />
         ))}
-        {/* Invisible div as a scroll anchor. */}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input or option buttons, conditionally rendered */}
       {showTextInput && !lastBotHasOptions ? (
         <form onSubmit={handleFormSubmit} className="flex space-x-3">
           <input

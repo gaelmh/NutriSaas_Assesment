@@ -1,25 +1,21 @@
-// Client-side component, necessary for handling private chatbot interactions
+// Updated public chatbot page.tsx with NLP integration
 'use client';
 
-// Import React hooks for state management and side effects
 import { useState, useRef, useEffect, useCallback } from 'react';
-
-// Import Apollo Client modules for executing GraphQL mutations
 import { gql, useMutation } from '@apollo/client';
-
-// Import `useRouter` for programmatic navigation in Next.js
 import { useRouter } from 'next/navigation';
 
-// Define the GraphQL mutation to send a message admin chatbot
+// Updated GraphQL mutation to include new fields
 const CHATBOT_MUTATION = gql`
   mutation Chatbot($message: String!) {
     chatbot(message: $message) {
       response
+      intent
+      confidence
     }
   }
 `;
 
-// Define the interface for a chat message object
 interface ChatMessage {
   id: number;
   text: string;
@@ -27,28 +23,27 @@ interface ChatMessage {
   options?: string[];
   isUserOption?: boolean;
   selectedOption?: string;
+  intent?: string;
+  confidence?: number;
 }
 
-// Defines conversation flow
+// Conversation flow remains the same
 const GUEST_CONVERSATION_FLOW = {
-  // Initial/Welcome message
   INITIAL: {
     botMessage: "¡Hola! Bienvenido a NutriSaas 🥗 ¿En qué puedo ayudarte hoy?",
     options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "🤷 Otro"],
   },
 
-  // Options for returning to the main menu 
   RETURN_TO_INITIAL: {
     botMessage: "¿Hay algo más en lo que te pueda ayudar?",
     options: ["📋 Conocer nuestros planes", "❓ Preguntas frecuentes", "📞 Contactar a un asesor", "🍎 ¿Qué es NutriSaas?", "🤷 Otro"],
   },
 
-  // Options for selecting a plan.
   PLAN_SELECTION: {
     botMessage: "Tenemos 3 planes diseñados para ti:",
     options: ["🌟 Plan Básico - $9.99/mes", "💎 Plan Premium - $19.99/mes", "🏆 Plan Pro - $39.99/mes", "⬅️ Volver al menú principal"],
   },
-  // Details for the Basic plan
+
   BASIC_PLAN_DETAILS: {
     botMessage:
     "El Plan Básico incluye:\n" +
@@ -57,7 +52,7 @@ const GUEST_CONVERSATION_FLOW = {
     "• ✅ Acceso limitado a recetas",
     options: ["📝 Registrarme ahora", "💬 Hablar con un asesor", "⬅️ Ver otros planes"],
   },
-  // Details for the Premium plan
+
   PREMIUM_PLAN_DETAILS: {
     botMessage: 
     "El Plan Premium incluye:\n" +
@@ -67,7 +62,7 @@ const GUEST_CONVERSATION_FLOW = {
     "• ✅ Acceso a +500 recetas",
     options: ["📝 Registrarme ahora", "💬 Hablar con un asesor", "⬅️ Ver otros planes"],
   },
-  // Details for the Pro plan
+
   PRO_PLAN_DETAILS: {
     botMessage:     
     "El Plan Pro incluye:\n" +
@@ -79,32 +74,22 @@ const GUEST_CONVERSATION_FLOW = {
     options: ["📝 Registrarme ahora", "💬 Hablar con un asesor", "⬅️ Ver otros planes"],
   },
 
-  // FAQ option, which includes a link to the FAQ page
   FAQ: {
     botMessage: `Aquí puedes encontrar respuestas a las preguntas más frecuentes: <a href="/chatbot/public/FAQs" target="_blank" class="text-blue-500 underline hover:text-blue-700">FAQs</a>`,
     options: ["⬅️ Volver al menú principal"],
   },
   
-  // Contact advisor information
   CONTACT_ADVISOR: {
     botMessage: "Por el momento ninguno de nustros asesores está disponible. Puedes contactar a un asesor por email contact@nutrisaas.com o llamando al +1 234 567 8900.",
     options: ["⬅️ Volver al menú principal"],
   },
 
-  // Description of NutriSaaS
   WHAT_IS_NUTRISAAS: {
     botMessage: "NutriSaas es una plataforma que te ayuda a alcanzar tus metas de nutrición con planes personalizados.",
     options: ["⬅️ Volver al menú principal"],
   },
-
-  // // Temporary default response for user input (MODIFY TO TAKE NLP ANSWER) 
-  OTHER_INPUT: {
-    botMessage: "Una disculpa, mis habilidades no pueden solucionar esa pregunta por el momento.",
-    options: [],
-  },
 };
 
-// React component for displaying a single chat message
 const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
   <div
     key={msg.id}
@@ -120,27 +105,65 @@ const ChatMessage = ({ msg }: { msg: ChatMessage }) => (
       }`}
     >
       <span dangerouslySetInnerHTML={{ __html: msg.text }} />
+      {/* Show intent and confidence for NLP responses (optional) */}
+      {msg.sender === 'bot' && msg.intent && msg.confidence !== undefined && (
+        <div className="text-xs mt-1 opacity-60">
+          {msg.intent} ({(msg.confidence * 100).toFixed(1)}%)
+        </div>
+      )}
     </div>
   </div>
 );
 
-// The main component for the public chatbot page
 export default function PublicChatbotPage() {
   const router = useRouter();
-  const [inputMessage, setInputMessage] = useState(''); // State for the text input field
-  const [messages, setMessages] = useState<ChatMessage[]>([]); // State for the chat messages list
-  const [guestState, setGuestState] = useState('INITIAL'); // State to track the current position in the conversational flow
-  const [showGuestTextInput, setShowGuestTextInput] = useState(false); // State to conditionally show the text input field
+  const [inputMessage, setInputMessage] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [guestState, setGuestState] = useState('INITIAL');
+  const [showGuestTextInput, setShowGuestTextInput] = useState(false);
 
-  // Hook to send messages to the chatbot backend
+  // Updated mutation to use actual NLP response
   const [sendChatMessage, { loading }] = useMutation(CHATBOT_MUTATION, {
+    onCompleted: (data) => {
+      const nlpResponse = data.chatbot;
+      
+      // Use actual NLP response
+      const botResponse: ChatMessage = {
+        id: messages.length + 2,
+        text: nlpResponse.response,
+        sender: 'bot',
+        options: [],
+        intent: nlpResponse.intent,
+        confidence: nlpResponse.confidence,
+      };
+
+      setMessages((prevMessages) => [...prevMessages, botResponse]);
+
+      // If the intent is pricing, show plan options after the NLP response
+      if (nlpResponse.intent === 'pricing') {
+        setTimeout(() => {
+          const planMessage: ChatMessage = {
+            id: messages.length + 3,
+            text: GUEST_CONVERSATION_FLOW.PLAN_SELECTION.botMessage,
+            sender: 'bot',
+            options: GUEST_CONVERSATION_FLOW.PLAN_SELECTION.options,
+          };
+          setMessages((prevMessages) => [...prevMessages, planMessage]);
+          setGuestState('PLAN_SELECTION');
+          setShowGuestTextInput(false);
+        }, 1000);
+      } else {
+        // For other intents, just keep text input available
+        // No automatic follow-up message
+      }
+    },
     onError: (error) => {
       console.error('Chatbot API error:', error);
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           id: prevMessages.length + 1,
-          text: 'Oops! Something went wrong with the chatbot service. Please try again.',
+          text: 'Lo siento, no pude procesar tu mensaje en este momento. Por favor, inténtalo de nuevo.',
           sender: 'bot',
         },
       ]);
@@ -148,15 +171,12 @@ export default function PublicChatbotPage() {
     },
   });
 
-  // Ref to enable auto-scrolling to the latest message
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the bottom of the message list whenever messages are updated
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Effect to initialize the chat with the first bot message when the component mounts
   useEffect(() => {
     if (messages.length === 0) {
       const initialBotMessage = GUEST_CONVERSATION_FLOW.INITIAL;
@@ -173,7 +193,6 @@ export default function PublicChatbotPage() {
     }
   }, []);
 
-  // Handler for text input form submission
   const handleSendMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     if (inputMessage.trim() === '') return;
@@ -185,30 +204,15 @@ export default function PublicChatbotPage() {
     };
 
     setMessages((prevMessages) => [...prevMessages, userMessage]);
+    
+    // Store the input message and clear it immediately
+    const messageToSend = inputMessage;
     setInputMessage('');
 
-    await sendChatMessage({ variables: { message: inputMessage } });
-
-    const firstBotResponse: ChatMessage = {
-      id: messages.length + 2,
-      text: GUEST_CONVERSATION_FLOW.OTHER_INPUT.botMessage,
-      sender: 'bot',
-      options: [],
-    };
-
-    const secondBotResponse: ChatMessage = {
-      id: messages.length + 3,
-      text: "¿Hay algo más en lo que te pueda ayudar?",
-      sender: 'bot',
-      options: GUEST_CONVERSATION_FLOW.INITIAL.options,
-    };
-
-    setMessages((prevMessages) => [...prevMessages, firstBotResponse, secondBotResponse]);
-    setGuestState('INITIAL');
-    setShowGuestTextInput(false);
+    // Send to NLP service
+    await sendChatMessage({ variables: { message: messageToSend } });
   };
 
-  // Handler for when a user clicks on an option button
   const handleGuestOptionClick = (option: string) => {
     const userMessage: ChatMessage = {
       id: messages.length + 1,
@@ -218,14 +222,14 @@ export default function PublicChatbotPage() {
     };
     setMessages((prevMessages) => [...prevMessages, userMessage]);
 
-    // Handle the "Otro" option separately to switch to text input mode
+    // Handle the "Otro" option to switch to NLP mode
     if (option === "🤷 Otro") {
       setShowGuestTextInput(true);
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           id: prevMessages.length + 1,
-          text: "Por favor, describe lo que necesitas",
+          text: "Por favor, describe lo que necesitas y usaré mi sistema de inteligencia artificial para ayudarte.",
           sender: 'bot',
         },
       ]);
@@ -235,7 +239,7 @@ export default function PublicChatbotPage() {
     let nextBotMessage: { botMessage: string; options?: string[] } | null = null;
     let newGuestState = guestState;
 
-    // Use a switch statement to manage the flow based on the current state and user's choice
+    // Handle predefined conversation flow
     switch (guestState) {
       case 'INITIAL':
         if (option === "📋 Conocer nuestros planes") {
@@ -294,7 +298,6 @@ export default function PublicChatbotPage() {
         newGuestState = 'INITIAL';
     }
 
-    // Add the next bot message and update the state
     if (nextBotMessage) {
       setMessages((prevMessages) => [
         ...prevMessages,
@@ -309,54 +312,51 @@ export default function PublicChatbotPage() {
     }
   };
 
-// Public Chatbot page desgn
-return (
-  <div className="flex flex-col h-full w-full bg-white text-gray-800">
-    {/* Messages container, configured to be scrollable and growable. */}
-    <div className="flex-1 overflow-y-auto p-4 bg-white border border-gray-200 rounded-md mb-4 space-y-3">
-      {messages.map((msg) => (
-        <ChatMessage key={msg.id} msg={msg} />
-      ))}
-      {/* Invisible div as a scroll anchor. */}
-      <div ref={messagesEndRef} />
-    </div>
+  return (
+    <div className="flex flex-col h-full w-full bg-white text-gray-800">
+      <div className="flex-1 overflow-y-auto p-4 bg-white border border-gray-200 rounded-md mb-4 space-y-3">
+        {messages.map((msg) => (
+          <ChatMessage key={msg.id} msg={msg} />
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
 
-    {/* Input or option buttons, conditionally rendered. */}
-    <div className="flex-shrink-0">
-      {showGuestTextInput ? (
-        <form onSubmit={handleSendMessage} className="flex space-x-3">
-          <input
-            type="text"
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Escribe tu mensaje para el chatbot público..."
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            className="px-6 py-2 bg-purple-600 text-white rounded-md shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-            disabled={loading || inputMessage.trim() === ''}
-          >
-            {loading ? 'Enviando...' : 'Enviar'}
-          </button>
-        </form>
-      ) : (
-        messages[messages.length - 1]?.sender === 'bot' && messages[messages.length - 1]?.options && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {messages[messages.length - 1]?.options?.map((option, index) => (
-              <button
-                key={index}
-                onClick={() => handleGuestOptionClick(option)}
-                className="py-3 px-4 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 transition duration-300 ease-in-out text-base font-medium"
-                disabled={loading}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        )
-      )}
+      <div className="flex-shrink-0">
+        {showGuestTextInput ? (
+          <form onSubmit={handleSendMessage} className="flex space-x-3">
+            <input
+              type="text"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Escribe tu mensaje para el chatbot..."
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              className="px-6 py-2 bg-purple-600 text-white rounded-md shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+              disabled={loading || inputMessage.trim() === ''}
+            >
+              {loading ? 'Enviando...' : 'Enviar'}
+            </button>
+          </form>
+        ) : (
+          messages[messages.length - 1]?.sender === 'bot' && messages[messages.length - 1]?.options && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {messages[messages.length - 1]?.options?.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleGuestOptionClick(option)}
+                  className="py-3 px-4 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 transition duration-300 ease-in-out text-base font-medium"
+                  disabled={loading}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          )
+        )}
+      </div>
     </div>
-  </div>
-)};
+  );
+}

@@ -15,45 +15,123 @@ import crypto from 'crypto';
 import 'dotenv/config';
 import cookieParser from 'cookie-parser';
 
+// Enhanced NLP service integration function
+async function callNLPService(message, userId = null, isAdmin = false) {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/chatbot', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        message,
+        userId,
+        isAdmin 
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`NLP Service responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error calling Python NLP service:", error);
+    
+    // Fallback response if NLP service is down
+    return {
+      response: "Lo siento, el servicio de chat no está disponible en este momento. Por favor, inténtalo más tarde.",
+      intent: "fallback",
+      confidence: 0.0
+    };
+  }
+}
+
+// Helper function for admin height queries
+async function handleAdminHeightQuery(db) {
+  try {
+    const { rows } = await db.query(`
+      SELECT 
+        height_cm,
+        COUNT(*) as user_count,
+        ROUND(AVG(weight_kg), 1) as avg_weight
+      FROM user_information 
+      WHERE height_cm IS NOT NULL 
+      GROUP BY height_cm 
+      ORDER BY height_cm
+    `);
+
+    if (rows.length === 0) {
+      return {
+        response: "📊 No hay datos de altura registrados aún.",
+        intent: "admin_query",
+        confidence: 1.0
+      };
+    }
+
+    let report = "📊 **Reporte de Alturas Registradas:**\n\n";
+    let totalUsers = 0;
+    
+    rows.forEach(row => {
+      report += `${row.height_cm}cm: ${row.user_count} usuario(s) | Peso promedio: ${row.avg_weight}kg\n`;
+      totalUsers += parseInt(row.user_count);
+    });
+    
+    report += `\n**Total de usuarios con datos:** ${totalUsers}`;
+    
+    const avgHeight = rows.reduce((sum, row) => sum + (row.height_cm * row.user_count), 0) / totalUsers;
+    report += `\n**Altura promedio:** ${Math.round(avgHeight)}cm`;
+
+    return {
+      response: report,
+      intent: "admin_query",
+      confidence: 1.0
+    };
+  } catch (error) {
+    console.error('Error generating height report:', error);
+    return {
+      response: "❌ Error al generar el reporte de alturas.",
+      intent: "admin_query",
+      confidence: 1.0
+    };
+  }
+}
+
 // Define the GraphQL schema using the GraphQL Schema Definition Language
 const typeDefs = `#graphql
-// Define the User type with basic information  
 type User {
     id: ID!
     username: String!
     email: String!
     fullname: String!
-  }
+}
 
-  // Define the UserInfo type for detailed user profile
-  type UserInfo {
+type UserInfo {
     initialInfoCollected: Boolean!
     height_cm: Int
     weight_kg: Int
     allergies: [String]
-    sex: String # Added sex field
-    age: Int # Added age field
-  }
+    sex: String
+    age: Int
+}
 
-  // Define the payload for authentication mutations
-  type AuthPayload {
+type AuthPayload {
     token: String!
     user: User!
-  }
+}
 
-  // Define the Query type, which is for fetching data
-  type Query {
+type Query {
     hello: String
     testMessage: TestMessage
     me: User
     userInfo(userId: String!): UserInfo
-  }
+}
 
-  // Define the Mutation type, which is for modifying data
-  type Mutation {
+type Mutation {
     signup(username: String!, password: String!, email: String!, fullname: String!): AuthPayload
     login(username: String!, password: String!): AuthPayload
-    logout: String! # Added logout mutation
+    logout: String!
     chatbot(message: String!): ChatResponse
     requestPasswordReset(email: String!): String!
     resetPassword(token: String!, newPassword: String!): String!
@@ -63,30 +141,30 @@ type User {
       height_cm: Int,
       weight_kg: Int,
       allergies: [String!],
-      sex: String, # Added sex to mutation input
-      age: Int # Added age to mutation input
+      sex: String,
+      age: Int
     ): UserInfo!
     updateUserInfo(
       userId: String!,
       height_cm: Int,
       weight_kg: Int,
       allergies: [String!],
-      sex: String, # Added sex to mutation input
-      age: Int # Added age to mutation input
+      sex: String,
+      age: Int
     ): UserInfo!
-    adminChatbot(message: String!): ChatResponse # New admin chatbot mutation
-  }
+    adminChatbot(message: String!): ChatResponse
+}
 
-  // Define a simple TestMessage type
-  type TestMessage {
+type TestMessage {
     id: ID!
     message: String
-  }
+}
 
-   // Define the response type for chatbot interactions
-  type ChatResponse {
+type ChatResponse {
     response: String!
-  }
+    intent: String
+    confidence: Float
+}
 `;
 
 // Define resolvers that match the schema, providing logic for each field
@@ -196,45 +274,85 @@ const resolvers = {
       return 'Logged out successfully.';
     },
 
-    // Resolver for the public chatbot interaction
-    chatbot: async (parent, { message }) => {
+    // Enhanced public chatbot resolver with NLP integration
+    chatbot: async (parent, { message }, { user, db }) => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/chatbot' , {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ message }),
-        });
-        const data = await response.json();
-        return data;
+        const userId = user ? user.id : null;
+        const nlpResponse = await callNLPService(message, userId, false);
+        
+        // Store the interaction in the database if user is logged in
+        if (user && db) {
+          try {
+            await db.query(
+              'INSERT INTO chatbot_data (user_id, question, answer) VALUES ($1, $2, $3)',
+              [user.id, message, nlpResponse.response]
+            );
+          } catch (dbError) {
+            console.error('Error storing chatbot interaction:', dbError);
+            // Don't throw error, just log it - user doesn't need to know about storage issues
+          }
+        }
+
+        return {
+          response: nlpResponse.response,
+          intent: nlpResponse.intent || null,
+          confidence: nlpResponse.confidence || 0.0
+        };
       } catch (error) {
-        console.error("Error calling Python chatbot API:", error);
-        throw new Error("Failed to get response from Python chatbot API");
+        console.error("Chatbot resolver error:", error);
+        throw new Error("Failed to process your message. Please try again.");
       }
     },
 
-    // Resolver for the admin chatbot, with an authorization check
+    // Enhanced admin chatbot resolver with special admin functionality
     adminChatbot: async (parent, { message }, { user, db }) => {
       if (!user) {
         throw new Error('Not authenticated.');
       }
+
+      // Check if user is admin
       const { rows } = await db.query('SELECT username FROM users WHERE id = $1', [user.id]);
       const loggedInUser = rows[0];
       if (loggedInUser.username !== 'AdminUser') {
         throw new Error('Unauthorized access.');
       }
 
-      // Placeholder for future NLP logic
-      const response = await fetch('http://127.0.0.1:8000/chatbot' , {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
-      });
-      const data = await response.json();
-      return data;
+      try {
+        // Handle special admin queries
+        if (message.toLowerCase().includes('altura') || message.toLowerCase().includes('height') || message.toLowerCase().includes('usuarios por altura')) {
+          const adminResponse = await handleAdminHeightQuery(db);
+          
+          // Store admin interaction
+          await db.query(
+            'INSERT INTO chatbot_data (user_id, question, answer) VALUES ($1, $2, $3)',
+            [user.id, `[ADMIN] ${message}`, adminResponse.response]
+          );
+          
+          return {
+            response: adminResponse.response,
+            intent: adminResponse.intent,
+            confidence: adminResponse.confidence
+          };
+        }
+
+        // For regular chat, use NLP service with admin flag
+        const nlpResponse = await callNLPService(message, user.id, true);
+        
+        // Store admin interactions
+        await db.query(
+          'INSERT INTO chatbot_data (user_id, question, answer) VALUES ($1, $2, $3)',
+          [user.id, `[ADMIN] ${message}`, nlpResponse.response]
+        );
+
+        return {
+          response: nlpResponse.response,
+          intent: nlpResponse.intent || null,
+          confidence: nlpResponse.confidence || 0.0
+        };
+      } catch (error) {
+        console.error("Admin chatbot resolver error:", error);
+        throw new Error("Failed to process admin request.");
+      }
     },
 
     // Resolver to handle a password reset request
@@ -379,7 +497,8 @@ async function startServer() {
   const PORT = process.env.PORT || 4000;
   await new Promise((resolve) => httpServer.listen({ port: PORT }, resolve));
 
-  console.log(`Server ready at http://localhost:${PORT}/graphql`);
+  console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
+  console.log(`🤖 NLP Chatbot service expected at http://127.0.0.1:8000`);
 }
 
 startServer();
