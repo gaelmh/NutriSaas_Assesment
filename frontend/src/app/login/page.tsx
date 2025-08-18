@@ -70,7 +70,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-              Username
+              Usuario
             </label>
             <input
               type="text"
@@ -83,7 +83,7 @@ export default function LoginPage() {
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              Contraseña
             </label>
             <input
               type="password"
@@ -111,7 +111,7 @@ export default function LoginPage() {
         )}
 
         <p className="mt-6 text-center text-gray-600">
-          ¿No tiene una cuenta?{' '}
+          ¿No tiene una cuenta?&apos;{' '}
           <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
             Registrarme
           </Link>

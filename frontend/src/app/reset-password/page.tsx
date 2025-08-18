@@ -105,7 +105,7 @@ export default function ResetPasswordPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                New Password
+                Nueva Contraseña
               </label>
               <input
                 type="password"
@@ -118,7 +118,7 @@ export default function ResetPasswordPage() {
             </div>
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm New Password
+                Confirmar Nueva Contraseña
               </label>
               <input
                 type="password"
@@ -148,7 +148,7 @@ export default function ResetPasswordPage() {
 
         <p className="mt-6 text-center text-gray-600">
           <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-            Back to Login
+            Regresar a Inicio de Sesión
           </Link>
         </p>
       </div>

@@ -133,7 +133,7 @@ export default function SignupPage() {
         )}
 
         <p className="mt-6 text-center text-gray-600">
-          ¿Ya tiene una cuenta?{' '}
+          ¿Ya tiene una cuenta?&apos;{' '}
           <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
             Iniciar Sesión
           </Link>
